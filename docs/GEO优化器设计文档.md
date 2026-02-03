@@ -2,7 +2,7 @@
 
 ## 概述
 
-本产品是一个面向 B 端的 GEO（Generative Engine Optimization）优化引擎，以 Go 包形式提供给后端其他程序调用。通过 LLM 驱动的内容优化，提升企业在 AI 搜索引擎（ChatGPT、Perplexity、Google AI）中的引用率和推荐质量。
+本产品是一个面向 B 端的 GEO（Generative Engine Optimization）优化引擎，以 Go 包形式提供给后端其他程序调用。通过 LLM 驱动的内容优化，提升企业在 AI 搜索引擎（ChatGPT、Perplexity、Google AI、豆包、deepseek、qwen）中的引用率和推荐质量。
 
 ## 核心功能
 
