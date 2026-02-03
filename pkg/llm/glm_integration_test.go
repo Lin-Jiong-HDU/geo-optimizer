@@ -169,8 +169,8 @@ Article
 				ProductName:        "测试产品",
 				ProductDescription: "这是一个测试产品",
 			},
-			TargetAI:    []string{"chatgpt"},
-			Keywords:    []string{"AI", "人工智能"},
+			TargetAI:   []string{"chatgpt"},
+			Keywords:   []string{"AI", "人工智能"},
 			Strategies: []models.StrategyType{models.StrategyStructure},
 		}
 

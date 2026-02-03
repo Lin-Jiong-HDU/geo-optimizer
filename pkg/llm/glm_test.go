@@ -43,8 +43,8 @@ func TestGLMClientChat(t *testing.T) {
 
 		// 返回 mock 响应
 		resp := glmResponse{
-			ID:      "test-123",
-			Model:   "glm-4.7",
+			ID:    "test-123",
+			Model: "glm-4.7",
 			Choices: []struct {
 				Index   int `json:"index"`
 				Message struct {
