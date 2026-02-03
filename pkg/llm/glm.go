@@ -95,10 +95,7 @@ func (c *GLMClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, 
 	// 转换消息格式
 	messages := make([]glmMessage, len(req.Messages))
 	for i, msg := range req.Messages {
-		messages[i] = glmMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
-		}
+		messages[i] = glmMessage(msg)
 	}
 
 	// 构建请求体
@@ -237,9 +234,16 @@ func (c *GLMClient) AnalyzeContent(ctx context.Context, content string) (*Conten
 		return nil, err
 	}
 
+	// 使用 parser 提取 JSON
+	parser := NewParser()
+	jsonStr := parser.extractJSON(chatResp.Content)
+	if jsonStr == "" {
+		return nil, fmt.Errorf("no JSON found in analysis response")
+	}
+
 	// 解析JSON响应
 	var analysis ContentAnalysis
-	if err := json.Unmarshal([]byte(chatResp.Content), &analysis); err != nil {
+	if err := json.Unmarshal([]byte(jsonStr), &analysis); err != nil {
 		return nil, fmt.Errorf("failed to parse analysis response: %w", err)
 	}
 
