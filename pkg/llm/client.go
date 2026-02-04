@@ -2,20 +2,12 @@ package llm
 
 import (
 	"context"
+
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
 
 // LLMClient LLM客户端接口
 type LLMClient interface {
-	// GenerateOptimization 生成内容优化
-	GenerateOptimization(ctx context.Context, req *models.OptimizationRequest) (*models.OptimizationResponse, error)
-
-	// GenerateSchema 生成Schema标记
-	GenerateSchema(ctx context.Context, content string, schemaType string) (string, error)
-
-	// AnalyzeContent 分析内容
-	AnalyzeContent(ctx context.Context, content string) (*ContentAnalysis, error)
-
 	// Chat 通用对话接口
 	Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
 }
@@ -70,4 +62,22 @@ func NewClient(config Config) (LLMClient, error) {
 	default:
 		return NewGLMClient(config)
 	}
+}
+
+// DeprecatedClient 包含已弃用方法的客户端接口
+// Deprecated: Use optimizer.Optimizer instead of these methods.
+type DeprecatedClient interface {
+	LLMClient
+
+	// GenerateOptimization 生成内容优化
+	// Deprecated: Use optimizer.Optimizer.Optimize instead.
+	GenerateOptimization(ctx context.Context, req *models.OptimizationRequest) (*models.OptimizationResponse, error)
+
+	// GenerateSchema 生成Schema标记
+	// Deprecated: Use optimizer.Optimizer with schema strategy instead.
+	GenerateSchema(ctx context.Context, content string, schemaType string) (string, error)
+
+	// AnalyzeContent 分析内容
+	// Deprecated: Use analyzer.Scorer instead.
+	AnalyzeContent(ctx context.Context, content string) (*ContentAnalysis, error)
 }
