@@ -29,21 +29,20 @@ func (s *Scorer) Score(ctx context.Context, content string) (*models.GeoScore, e
 }
 
 // ScoreWithAnalysis 对内容进行评分并返回详细分析（基于LLM）
+// Deprecated: The AnalyzeContent method has been moved. Use Score() instead for rule-based scoring.
 func (s *Scorer) ScoreWithAnalysis(ctx context.Context, content string) (*models.ContentAnalysis, error) {
-	llmAnalysis, err := s.llmClient.AnalyzeContent(ctx, content)
-	if err != nil {
-		return nil, err
-	}
+	// Use rule-based scoring instead
+	score := s.scoreByRules(content)
 
-	// 转换为 models.ContentAnalysis
+	// Convert to ContentAnalysis
 	analysis := &models.ContentAnalysis{
-		StructureScore: llmAnalysis.StructureScore,
-		AuthorityScore: llmAnalysis.AuthorityScore,
-		ClarityScore:   llmAnalysis.ClarityScore,
-		CitationScore:  llmAnalysis.CitationScore,
-		SchemaScore:    llmAnalysis.SchemaScore,
-		GeoScore:       llmAnalysis.TotalScore,
-		Suggestions:    llmAnalysis.Suggestions,
+		StructureScore: score.Structure,
+		AuthorityScore: score.Authority,
+		ClarityScore:   score.Clarity,
+		CitationScore:  score.Citation,
+		SchemaScore:    score.Schema,
+		GeoScore:       score.OverallScore(),
+		Suggestions:    []string{}, // Can be enhanced later
 	}
 
 	return analysis, nil

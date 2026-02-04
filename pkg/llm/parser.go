@@ -261,3 +261,195 @@ func ExtractKeyPoints(content string) []string {
 
 	return points
 }
+
+// extractSchema 提取Schema标记
+func (p *Parser) extractSchema(content string) string {
+	// 查找JSON-LD script标签
+	if strings.Contains(content, `<script type="application/ld+json">`) {
+		start := strings.Index(content, `<script type="application/ld+json">`)
+		end := strings.Index(content[start:], `</script>`)
+		if end > start {
+			return content[start : start+end+len(`</script>`)]
+		}
+	}
+
+	// 查找JSON代码块中的Schema
+	if strings.Contains(content, "```json") {
+		start := strings.Index(content, "```json")
+		end := strings.Index(content[start:], "```")
+		if end > start {
+			jsonContent := strings.TrimSpace(content[start+7 : start+end])
+			if strings.HasPrefix(jsonContent, "{") || strings.HasPrefix(jsonContent, "[") {
+				if json.Valid([]byte(jsonContent)) {
+					return fmt.Sprintf(`<script type="application/ld+json">%s</script>`, jsonContent)
+				}
+			}
+		}
+	}
+
+	// 查找包含@context或@type的JSON对象
+	re := regexp.MustCompile(`\{[^"]*"@context"[^}]*\}|\{[^"]*"@type"[^}]*\}`)
+	matches := re.FindAllString(content, -1)
+	for _, match := range matches {
+		if json.Valid([]byte(match)) {
+			return fmt.Sprintf(`<script type="application/ld+json">%s</script>`, match)
+		}
+	}
+
+	return ""
+}
+
+// extractFAQ 提取FAQ部分
+func (p *Parser) extractFAQ(content string) string {
+	keywords := []string{"## 常见问题", "## FAQ", "### 常见问题", "### FAQ", "## 常见问答", "### 常见问答"}
+
+	for _, keyword := range keywords {
+		if strings.Contains(content, keyword) {
+			start := strings.Index(content, keyword)
+			// 查找FAQ章节的结束位置
+			end := len(content)
+			nextHeading := strings.Index(content[start+2:], "##")
+			if nextHeading > 0 && start+2+nextHeading < end {
+				end = start + 2 + nextHeading
+			}
+			return strings.TrimSpace(content[start:end])
+		}
+	}
+
+	return ""
+}
+
+// extractSummary 提取摘要
+func (p *Parser) extractSummary(content string) string {
+	keywords := []string{"## 摘要", "## 总结", "## 概述", "### 摘要", "### 总结", "### 概述"}
+
+	for _, keyword := range keywords {
+		if strings.Contains(content, keyword) {
+			start := strings.Index(content, keyword)
+			end := start + len(keyword)
+
+			// 提取摘要章节的第一段
+			nextNewline := strings.Index(content[end:], "\n\n")
+			if nextNewline > 0 {
+				return strings.TrimSpace(content[end+2 : end+2+nextNewline])
+			}
+
+			// 提取摘要章节的前200个字符
+			if end+200 < len(content) {
+				return strings.TrimSpace(content[end+2:end+200]) + "..."
+			}
+		}
+	}
+
+	// 如果没有找到摘要章节，查找首段
+	firstParagraphEnd := strings.Index(content, "\n\n")
+	if firstParagraphEnd > 0 && firstParagraphEnd < 300 {
+		return strings.TrimSpace(content[:firstParagraphEnd])
+	}
+
+	// 提取前200个字符
+	if len(content) > 200 {
+		return strings.TrimSpace(content[:200]) + "..."
+	}
+
+	return content
+}
+
+// extractProductMentions 提取产品提及（带产品名称参数）
+func (p *Parser) extractProductMentionsWithProduct(content string, productName string) []string {
+	if productName == "" {
+		return []string{}
+	}
+
+	var mentions []string
+	lowerContent := strings.ToLower(content)
+	lowerProduct := strings.ToLower(productName)
+
+	pos := 0
+	for {
+		idx := strings.Index(lowerContent[pos:], lowerProduct)
+		if idx == -1 {
+			break
+		}
+
+		actualPos := pos + idx
+
+		// 获取上下文（前后50个字符）
+		start := actualPos - 50
+		if start < 0 {
+			start = 0
+		}
+		end := actualPos + len(productName) + 50
+		if end > len(content) {
+			end = len(content)
+		}
+
+		context := content[start:end]
+		mentions = append(mentions, context)
+
+		pos = actualPos + len(productName)
+	}
+
+	return mentions
+}
+
+// extractDifferentiationPoints 提取差异化要点
+func (p *Parser) extractDifferentiationPoints(content string) []string {
+	var points []string
+
+	// 查找差异化关键词
+	keywords := []string{"独特", "优势", "区别", "不同于", "相比", "优于", "差异"}
+
+	for _, keyword := range keywords {
+		if strings.Contains(content, keyword) {
+			// 简单提取包含关键词的句子
+			start := strings.Index(content, keyword)
+			if start >= 0 {
+				sentenceStart := strings.LastIndex(content[:start], "。")
+				if sentenceStart < 0 {
+					sentenceStart = 0
+				} else {
+					sentenceStart++
+				}
+
+				sentenceEnd := strings.Index(content[start:], "。")
+				if sentenceEnd < 0 {
+					sentenceEnd = len(content)
+				} else {
+					sentenceEnd = start + sentenceEnd
+				}
+
+				sentence := strings.TrimSpace(content[sentenceStart:sentenceEnd])
+				if len(sentence) > 10 {
+					points = append(points, sentence)
+				}
+			}
+		}
+	}
+
+	return points
+}
+
+// extractOptimizations 提取优化详情
+func (p *Parser) extractOptimizations(content string) []string {
+	var optimizations []string
+
+	// 查找优化相关关键词
+	patterns := []string{
+		`优化[：:]\s*([^\n]+)`,
+		`改进[：:]\s*([^\n]+)`,
+		`提升[：:]\s*([^\n]+)`,
+	}
+
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		matches := re.FindAllStringSubmatch(content, -1)
+		for _, match := range matches {
+			if len(match) > 1 {
+				optimizations = append(optimizations, strings.TrimSpace(match[1]))
+			}
+		}
+	}
+
+	return optimizations
+}

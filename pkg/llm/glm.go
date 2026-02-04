@@ -140,7 +140,57 @@ func (c *GLMClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, 
 	}, nil
 }
 
+// doRequest 执行HTTP请求
+func (c *GLMClient) doRequest(ctx context.Context, req glmRequest) ([]byte, error) {
+	// 序列化请求体
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// 创建HTTP请求
+	url := glmBaseURL
+	if c.config.BaseURL != "" {
+		url = c.config.BaseURL
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// 设置请求头
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+
+	// 发送请求
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应体
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// 检查HTTP状态码
+	if resp.StatusCode != http.StatusOK {
+		// 尝试解析错误响应
+		var errResp glmErrorResponse
+		if err := json.Unmarshal(respBody, &errResp); err == nil && errResp.Error.Code != "" {
+			return nil, fmt.Errorf("GLM API error: %s - %s", errResp.Error.Code, errResp.Error.Message)
+		}
+		return nil, fmt.Errorf("GLM API request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return respBody, nil
+}
+
 // GenerateOptimization 生成内容优化
+// Deprecated: Use optimizer.Optimizer instead. This method will be removed in v2.0.
 func (c *GLMClient) GenerateOptimization(ctx context.Context, req *models.OptimizationRequest) (*models.OptimizationResponse, error) {
 	// 构建优化提示词
 	prompt := c.buildOptimizationPrompt(req)
@@ -176,6 +226,7 @@ func (c *GLMClient) GenerateOptimization(ctx context.Context, req *models.Optimi
 }
 
 // GenerateSchema 生成Schema标记
+// Deprecated: Use optimizer.Optimizer with schema strategy instead.
 func (c *GLMClient) GenerateSchema(ctx context.Context, content string, schemaType string) (string, error) {
 	prompt := fmt.Sprintf(`请为以下内容生成JSON-LD格式的Schema标记。Schema类型：%s
 
@@ -202,6 +253,7 @@ func (c *GLMClient) GenerateSchema(ctx context.Context, content string, schemaTy
 }
 
 // AnalyzeContent 分析内容
+// Deprecated: Use analyzer.Scorer instead.
 func (c *GLMClient) AnalyzeContent(ctx context.Context, content string) (*ContentAnalysis, error) {
 	prompt := fmt.Sprintf(`请分析以下内容的GEO（生成式搜索引擎优化）质量，并给出评分和建议。
 
@@ -251,6 +303,7 @@ func (c *GLMClient) AnalyzeContent(ctx context.Context, content string) (*Conten
 }
 
 // buildOptimizationPrompt 构建优化提示词
+// Deprecated: Use prompts.Builder instead.
 func (c *GLMClient) buildOptimizationPrompt(req *models.OptimizationRequest) string {
 	prompt := fmt.Sprintf(`请优化以下内容以提高其在AI搜索引擎中的可见性和引用率。
 
@@ -302,53 +355,4 @@ func (c *GLMClient) buildOptimizationPrompt(req *models.OptimizationRequest) str
 	}
 
 	return prompt
-}
-
-// doRequest 执行HTTP请求
-func (c *GLMClient) doRequest(ctx context.Context, req glmRequest) ([]byte, error) {
-	// 序列化请求体
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// 创建HTTP请求
-	url := glmBaseURL
-	if c.config.BaseURL != "" {
-		url = c.config.BaseURL
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// 设置请求头
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.config.APIKey)
-
-	// 发送请求
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// 读取响应体
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// 检查HTTP状态码
-	if resp.StatusCode != http.StatusOK {
-		// 尝试解析错误响应
-		var errResp glmErrorResponse
-		if err := json.Unmarshal(respBody, &errResp); err == nil && errResp.Error.Code != "" {
-			return nil, fmt.Errorf("GLM API error: %s - %s", errResp.Error.Code, errResp.Error.Message)
-		}
-		return nil, fmt.Errorf("GLM API request failed with status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	return respBody, nil
 }
