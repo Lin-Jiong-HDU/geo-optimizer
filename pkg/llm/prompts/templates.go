@@ -21,8 +21,10 @@ const (
 - 使用列表组织要点
 - 段落不宜过长，保持在100-300字
 - 添加章节划分
+- 在适当位置自然地提及企业产品或服务，展示产品价值（但不要过度推销）
 
 原始内容：
+%s
 %s
 
 请只返回优化后的内容，不要包含解释。`
@@ -55,8 +57,10 @@ Schema类型：%s
 - 引用来源（使用[来源]标注）
 - 添加专业术语
 - 增加案例或证据
+- 在适当位置融入企业的权威性信息（认证、奖项、案例等）来增强内容的可信度
 
 原始内容：
+%s
 %s
 
 请只返回增强后的内容。`
@@ -64,11 +68,14 @@ Schema类型：%s
 	StrategyPromptFAQ = `请为以下内容生成FAQ（常见问题）部分。
 
 要求：
-- 生成3-5个常见问题
+- 生成%d个常见问题
 - 每个问题给出简洁准确的答案
 - 问题应该覆盖内容的核心要点
+- 至少有1-2个问题应该自然地提及企业产品或服务，展示产品的价值
+- 在相关答案中巧妙地融入产品优势，但要保持客观和有价值
 
 原始内容：
+%s
 %s
 
 请只返回FAQ部分，格式如下：
@@ -137,10 +144,10 @@ func BuildOptimizationPrompt(req *models.OptimizationRequest) string {
 }
 
 // BuildStrategyPrompt 构建策略特定的提示词
-func BuildStrategyPrompt(strategy models.StrategyType, content string, extraParams ...string) string {
+func BuildStrategyPrompt(strategy models.StrategyType, content string, enterpriseInfo string, extraParams ...string) string {
 	switch strategy {
 	case models.StrategyStructure:
-		return fmt.Sprintf(StrategyPromptStructure, content)
+		return fmt.Sprintf(StrategyPromptStructure, content, enterpriseInfo)
 	case models.StrategySchema:
 		schemaType := "Article"
 		if len(extraParams) > 0 {
@@ -150,9 +157,14 @@ func BuildStrategyPrompt(strategy models.StrategyType, content string, extraPara
 	case models.StrategyAnswerFirst:
 		return fmt.Sprintf(StrategyPromptAnswerFirst, content)
 	case models.StrategyAuthority:
-		return fmt.Sprintf(StrategyPromptAuthority, content)
+		return fmt.Sprintf(StrategyPromptAuthority, content, enterpriseInfo)
 	case models.StrategyFAQ:
-		return fmt.Sprintf(StrategyPromptFAQ, content)
+		count := 5
+		if len(extraParams) > 0 {
+			// extraParams[0] is the FAQ count, extraParams[1] is enterprise info
+			return fmt.Sprintf(StrategyPromptFAQ, extraParams[0], content, extraParams[1])
+		}
+		return fmt.Sprintf(StrategyPromptFAQ, count, content, enterpriseInfo)
 	default:
 		return content
 	}

@@ -52,7 +52,7 @@ func (f *FAQStrategy) Postprocess(content string, req *models.OptimizationReques
 // BuildPrompt 构建FAQ生成提示词
 func (f *FAQStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 	builder := prompts.NewBuilder()
-	return builder.BuildFAQPrompt(req.Content, f.faqCount)
+	return builder.BuildFAQPromptWithEnterprise(req.Content, f.faqCount, req.Enterprise)
 }
 
 // SetFAQCount 设置FAQ数量
