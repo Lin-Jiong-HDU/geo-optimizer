@@ -69,7 +69,7 @@ func (o *Optimizer) Optimize(ctx context.Context, req *models.OptimizationReques
 	}
 
 	// 4. 策略执行
-	optimizedContent, schemaMarkup, faqSection, err := o.executeStrategies(ctx, req)
+	optimizedContent, schemaMarkup, faqSection, totalTokens, llmModel, err := o.executeStrategies(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("strategy execution failed: %w", err)
 	}
@@ -81,7 +81,7 @@ func (o *Optimizer) Optimize(ctx context.Context, req *models.OptimizationReques
 	}
 
 	// 6. 解析响应
-	response := o.buildResponse(req, optimizedContent, schemaMarkup, faqSection, scoreBefore, scoreAfter)
+	response := o.buildResponse(req, optimizedContent, schemaMarkup, faqSection, totalTokens, llmModel, scoreBefore, scoreAfter)
 
 	return response, nil
 }
@@ -114,7 +114,7 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 	}
 
 	// 6. 执行策略
-	optimizedContent, err := o.executeStrategy(ctx, req, strategy)
+	optimizedContent, _, err := o.executeStrategy(ctx, req, strategy)
 	if err != nil {
 		return nil, fmt.Errorf("strategy execution failed: %w", err)
 	}
@@ -140,9 +140,12 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 }
 
 // executeStrategies 执行所有策略
-func (o *Optimizer) executeStrategies(ctx context.Context, req *models.OptimizationRequest) (content, schema, faq string, err error) {
+func (o *Optimizer) executeStrategies(ctx context.Context, req *models.OptimizationRequest) (content, schema, faq string, totalTokens int, model string, err error) {
 	content = req.Content
-	var strategyResults []string
+	schema = ""
+	faq = ""
+	totalTokens = 0
+	model = ""
 
 	// 遍历策略
 	for _, strategyType := range req.Strategies {
@@ -156,29 +159,43 @@ func (o *Optimizer) executeStrategies(ctx context.Context, req *models.Optimizat
 		}
 
 		// 执行策略
-		result, err := o.executeStrategy(ctx, req, strategy)
+		result, chatResp, err := o.executeStrategy(ctx, req, strategy)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to execute strategy %s: %w", strategyType, err)
+			return "", "", "", 0, "", fmt.Errorf("failed to execute strategy %s: %w", strategyType, err)
 		}
 
-		strategyResults = append(strategyResults, result)
+		// 累加 token 和记录模型
+		totalTokens += chatResp.TokensUsed
+		if model == "" && chatResp.Model != "" {
+			model = chatResp.Model
+		}
+
+		// 根据策略类型处理结果
+		switch strategyType {
+		case models.StrategyStructure, models.StrategyAnswerFirst, models.StrategyAuthority:
+			content = result // 替换内容
+		case models.StrategySchema:
+			schema = result // 单独存储
+		case models.StrategyFAQ:
+			faq = result
+			content = content + "\n\n" + result // 追加内容
+		}
 	}
 
-	// 合并策略结果
-	if len(strategyResults) > 0 {
-		// 使用最后一个策略的结果作为主要内容
-		content = strategyResults[len(strategyResults)-1]
+	// 如果没有从响应中获取到 schema，尝试从内容中提取
+	if schema == "" {
+		schema = o.extractSchema(content)
+	}
+	// 如果没有从响应中获取到 faq，尝试从内容中提取
+	if faq == "" {
+		faq = o.extractFAQ(content)
 	}
 
-	// 提取 Schema 和 FAQ
-	schema = o.extractSchema(content)
-	faq = o.extractFAQ(content)
-
-	return content, schema, faq, nil
+	return content, schema, faq, totalTokens, model, nil
 }
 
 // executeStrategy 执行单个策略
-func (o *Optimizer) executeStrategy(ctx context.Context, req *models.OptimizationRequest, strategy strategiespkg.Strategy) (string, error) {
+func (o *Optimizer) executeStrategy(ctx context.Context, req *models.OptimizationRequest, strategy strategiespkg.Strategy) (string, *llm.ChatResponse, error) {
 	// 1. 预处理（暂不使用结果，仅调用）
 	_ = strategy.Preprocess(req.Content, req)
 
@@ -197,13 +214,13 @@ func (o *Optimizer) executeStrategy(ctx context.Context, req *models.Optimizatio
 		MaxTokens:   8000,
 	})
 	if err != nil {
-		return "", fmt.Errorf("LLM chat failed: %w", err)
+		return "", nil, fmt.Errorf("LLM chat failed: %w", err)
 	}
 
 	// 4. 后处理
 	result := strategy.Postprocess(chatResp.Content, req)
 
-	return result, nil
+	return result, chatResp, nil
 }
 
 // validateRequest 验证请求参数
@@ -252,7 +269,7 @@ func (o *Optimizer) applyDefaults(req *models.OptimizationRequest) {
 }
 
 // buildResponse 构建响应
-func (o *Optimizer) buildResponse(req *models.OptimizationRequest, optimizedContent, schemaMarkup, faqSection string, scoreBefore, scoreAfter *models.GeoScore) *models.OptimizationResponse {
+func (o *Optimizer) buildResponse(req *models.OptimizationRequest, optimizedContent, schemaMarkup, faqSection string, totalTokens int, llmModel string, scoreBefore, scoreAfter *models.GeoScore) *models.OptimizationResponse {
 	// 提取摘要
 	summary := o.extractSummary(optimizedContent)
 
@@ -277,8 +294,11 @@ func (o *Optimizer) buildResponse(req *models.OptimizationRequest, optimizedCont
 		AppliedStrategies:     req.Strategies,
 		ScoreBefore:           scoreBefore.OverallScore(),
 		ScoreAfter:            scoreAfter.OverallScore(),
+		Recommendations:       o.generateRecommendations(scoreBefore, scoreAfter),
 		GeneratedAt:           time.Now(),
 		Version:               "1.0.0",
+		LLMModel:              llmModel,
+		TokensUsed:            totalTokens,
 	}
 }
 
@@ -456,4 +476,33 @@ func (o *Optimizer) extractDifferentiationPoints(content string, competitors []m
 	}
 
 	return points
+}
+
+// generateRecommendations 生成改进建议
+func (o *Optimizer) generateRecommendations(before, after *models.GeoScore) []string {
+	var recommendations []string
+
+	// 基于优化后评分生成建议
+	if after.Structure < 60 {
+		recommendations = append(recommendations, "建议添加更多标题层级和列表来改善内容结构")
+	}
+	if after.Authority < 60 {
+		recommendations = append(recommendations, "建议添加数据支撑和引用来源来提升权威性")
+	}
+	if after.Clarity < 60 {
+		recommendations = append(recommendations, "建议简化句子结构，使用更通俗的表达来提升清晰度")
+	}
+	if after.Citation < 60 {
+		recommendations = append(recommendations, "建议增加关键信息和引用点来提升可引用性")
+	}
+	if after.Schema < 60 {
+		recommendations = append(recommendations, "建议完善结构化数据标记以提升AI可理解性")
+	}
+
+	// 如果没有建议，返回积极反馈
+	if len(recommendations) == 0 {
+		recommendations = append(recommendations, "内容优化效果良好，各项指标均达到较高水平")
+	}
+
+	return recommendations
 }
