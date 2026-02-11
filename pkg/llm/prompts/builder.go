@@ -162,13 +162,76 @@ func (b *Builder) BuildStrategyPrompt(strategy models.StrategyType, req *models.
 	content := req.Content
 	extraParams := []string{}
 
+	// 构建企业信息
+	enterpriseInfo := b.buildEnterpriseInfo(req)
+
 	// 预处理内容（根据策略）
 	switch strategy {
 	case models.StrategySchema:
 		extraParams = append(extraParams, "Article")
+	case models.StrategyFAQ:
+		// FAQ需要数量，放在extraParams[0]
+		// 企业信息通过enterpriseInfo参数传递
 	}
 
-	return BuildStrategyPrompt(strategy, content, extraParams...)
+	return BuildStrategyPrompt(strategy, content, enterpriseInfo, extraParams...)
+}
+
+// buildEnterpriseInfo 构建企业信息字符串
+func (b *Builder) buildEnterpriseInfo(req *models.OptimizationRequest) string {
+	if req.Enterprise.ProductName == "" && req.Enterprise.ProductDescription == "" &&
+		len(req.Enterprise.Certifications) == 0 && len(req.Enterprise.Awards) == 0 {
+		return ""
+	}
+
+	var info string
+	if req.Enterprise.CompanyName != "" {
+		info += fmt.Sprintf("\n【企业信息】\n公司名称：%s", req.Enterprise.CompanyName)
+	}
+	if req.Enterprise.ProductName != "" {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n产品名称：%s", req.Enterprise.ProductName)
+	}
+	if req.Enterprise.ProductDescription != "" {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n产品描述：%s", req.Enterprise.ProductDescription)
+	}
+	if len(req.Enterprise.ProductFeatures) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n产品特点：%v", req.Enterprise.ProductFeatures)
+	}
+	if len(req.Enterprise.USP) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n独特卖点：%v", req.Enterprise.USP)
+	}
+	if len(req.Enterprise.Certifications) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n认证信息：%v", req.Enterprise.Certifications)
+	}
+	if len(req.Enterprise.Awards) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n奖项荣誉：%v", req.Enterprise.Awards)
+	}
+	if len(req.Enterprise.CaseStudies) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n案例研究：%v", req.Enterprise.CaseStudies)
+	}
+
+	return info
 }
 
 // BuildMessages 构建完整的消息列表
@@ -241,38 +304,83 @@ func (b *Builder) BuildFAQPrompt(content string, count int) string {
 	if count <= 0 {
 		count = 5
 	}
-	return fmt.Sprintf(`请为以下内容生成FAQ（常见问题）部分。
+	// 企业信息为空，使用模板
+	return fmt.Sprintf(StrategyPromptFAQ, count, content, "")
+}
 
-要求：
-- 生成%d个常见问题
-- 每个问题给出简洁准确的答案
-- 问题应该覆盖内容的核心要点
+// BuildFAQPromptWithEnterprise 构建 FAQ 生成 Prompt（带企业信息）
+func (b *Builder) BuildFAQPromptWithEnterprise(content string, count int, enterprise models.EnterpriseInfo) string {
+	if count <= 0 {
+		count = 5
+	}
 
-原始内容：
-%s
+	// 构建企业信息
+	enterpriseInfo := b.buildEnterpriseInfoFromInfo(enterprise)
 
-请只返回FAQ部分，格式如下：
-## 常见问题
+	return fmt.Sprintf(StrategyPromptFAQ, count, content, enterpriseInfo)
+}
 
-### Q1: [问题]
-A: [答案]
-`, count, content)
+// buildEnterpriseInfoFromInfo 从 EnterpriseInfo 构建企业信息字符串
+func (b *Builder) buildEnterpriseInfoFromInfo(enterprise models.EnterpriseInfo) string {
+	if enterprise.ProductName == "" && enterprise.ProductDescription == "" &&
+		len(enterprise.Certifications) == 0 && len(enterprise.Awards) == 0 {
+		return ""
+	}
+
+	var info string
+	if enterprise.CompanyName != "" {
+		info += fmt.Sprintf("\n【企业信息】\n公司名称：%s", enterprise.CompanyName)
+	}
+	if enterprise.ProductName != "" {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n产品名称：%s", enterprise.ProductName)
+	}
+	if enterprise.ProductDescription != "" {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n产品描述：%s", enterprise.ProductDescription)
+	}
+	if len(enterprise.ProductFeatures) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n产品特点：%v", enterprise.ProductFeatures)
+	}
+	if len(enterprise.USP) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n独特卖点：%v", enterprise.USP)
+	}
+	if len(enterprise.Certifications) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n认证信息：%v", enterprise.Certifications)
+	}
+	if len(enterprise.Awards) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n奖项荣誉：%v", enterprise.Awards)
+	}
+	if len(enterprise.CaseStudies) > 0 {
+		if info == "" {
+			info += "\n【企业信息】"
+		}
+		info += fmt.Sprintf("\n案例研究：%v", enterprise.CaseStudies)
+	}
+
+	return info
 }
 
 // BuildAuthorityPrompt 构建权威性增强 Prompt
 func (b *Builder) BuildAuthorityPrompt(content string, enterprise models.EnterpriseInfo) string {
-	prompt := fmt.Sprintf(StrategyPromptAuthority, content)
+	// 构建企业信息
+	enterpriseInfo := b.buildEnterpriseInfoFromInfo(enterprise)
 
-	// 添加企业权威性信息
-	if len(enterprise.Certifications) > 0 {
-		prompt += fmt.Sprintf("\n\n可用认证信息：%v", enterprise.Certifications)
-	}
-	if len(enterprise.Awards) > 0 {
-		prompt += fmt.Sprintf("\n可用奖项：%v", enterprise.Awards)
-	}
-	if len(enterprise.CaseStudies) > 0 {
-		prompt += fmt.Sprintf("\n可用案例研究：%v", enterprise.CaseStudies)
-	}
-
-	return prompt
+	return fmt.Sprintf(StrategyPromptAuthority, content, enterpriseInfo)
 }

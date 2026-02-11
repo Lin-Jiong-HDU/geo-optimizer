@@ -1,8 +1,6 @@
 package strategies
 
 import (
-	"fmt"
-
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/llm/prompts"
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
@@ -54,20 +52,7 @@ func (f *FAQStrategy) Postprocess(content string, req *models.OptimizationReques
 // BuildPrompt 构建FAQ生成提示词
 func (f *FAQStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 	builder := prompts.NewBuilder()
-	prompt := builder.BuildFAQPrompt(req.Content, f.faqCount)
-
-	// 添加企业信息
-	if req.Enterprise.ProductName != "" || req.Enterprise.ProductDescription != "" {
-		prompt += "\n\n【企业信息】\n"
-		if req.Enterprise.ProductName != "" {
-			prompt += fmt.Sprintf("产品名称：%s\n", req.Enterprise.ProductName)
-		}
-		if req.Enterprise.ProductDescription != "" {
-			prompt += fmt.Sprintf("产品描述：%s\n", req.Enterprise.ProductDescription)
-		}
-	}
-
-	return prompt
+	return builder.BuildFAQPromptWithEnterprise(req.Content, f.faqCount, req.Enterprise)
 }
 
 // SetFAQCount 设置FAQ数量
