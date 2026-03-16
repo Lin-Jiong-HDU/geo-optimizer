@@ -196,13 +196,10 @@ func (o *Optimizer) executeStrategies(ctx context.Context, req *models.Optimizat
 
 // executeStrategy 执行单个策略
 func (o *Optimizer) executeStrategy(ctx context.Context, req *models.OptimizationRequest, strategy strategiespkg.Strategy) (string, *llm.ChatResponse, error) {
-	// 1. 预处理（暂不使用结果，仅调用）
 	_ = strategy.Preprocess(req.Content, req)
 
-	// 2. 构建提示词
 	prompt := strategy.BuildPrompt(req)
 
-	// 3. 调用 LLM
 	messages := []llm.Message{
 		{Role: "system", Content: prompts.GetSystemPrompt("optimization")},
 		{Role: "user", Content: prompt},
@@ -217,7 +214,6 @@ func (o *Optimizer) executeStrategy(ctx context.Context, req *models.Optimizatio
 		return "", nil, fmt.Errorf("LLM chat failed: %w", err)
 	}
 
-	// 4. 后处理
 	result := strategy.Postprocess(chatResp.Content, req)
 
 	return result, chatResp, nil

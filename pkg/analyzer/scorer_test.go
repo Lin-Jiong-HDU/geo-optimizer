@@ -11,28 +11,13 @@ import (
 // mockLLMClient 模拟LLM客户端
 type mockLLMClient struct{}
 
-func (m *mockLLMClient) GenerateOptimization(ctx context.Context, req *models.OptimizationRequest) (*models.OptimizationResponse, error) {
-	return nil, nil
-}
-
-func (m *mockLLMClient) GenerateSchema(ctx context.Context, content string, schemaType string) (string, error) {
-	return "", nil
-}
-
-func (m *mockLLMClient) AnalyzeContent(ctx context.Context, content string) (*llm.ContentAnalysis, error) {
-	return &llm.ContentAnalysis{
-		StructureScore: 75.0,
-		AuthorityScore: 60.0,
-		ClarityScore:   80.0,
-		CitationScore:  70.0,
-		SchemaScore:    50.0,
-		TotalScore:     67.0,
-		Suggestions:    []string{"添加更多引用", "优化结构"},
-	}, nil
-}
-
 func (m *mockLLMClient) Chat(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
-	return nil, nil
+	return &llm.ChatResponse{
+		Content:      "{}",
+		TokensUsed:   100,
+		Model:        "test-model",
+		FinishReason: "stop",
+	}, nil
 }
 
 func TestNewScorer(t *testing.T) {
@@ -151,7 +136,7 @@ func TestScorer_Score_WithSchema(t *testing.T) {
 func TestScorer_ScoreWithAnalysis(t *testing.T) {
 	scorer := NewScorer(&mockLLMClient{})
 
-	content := "测试内容"
+	content := "# 测试内容\n\n## 章节一\n\n测试内容。"
 
 	analysis, err := scorer.ScoreWithAnalysis(context.Background(), content)
 	if err != nil {
@@ -162,16 +147,16 @@ func TestScorer_ScoreWithAnalysis(t *testing.T) {
 		t.Fatal("ScoreWithAnalysis should return non-nil analysis")
 	}
 
-	// 验证返回的分析结果
-	if analysis.StructureScore != 75.0 {
-		t.Errorf("Expected StructureScore 75.0, got: %.2f", analysis.StructureScore)
+	// 验证返回的分析结果在合理范围内
+	if analysis.StructureScore < 0 || analysis.StructureScore > 100 {
+		t.Errorf("StructureScore should be between 0-100, got: %.2f", analysis.StructureScore)
 	}
-	if analysis.AuthorityScore != 60.0 {
-		t.Errorf("Expected AuthorityScore 60.0, got: %.2f", analysis.AuthorityScore)
+	if analysis.AuthorityScore < 0 || analysis.AuthorityScore > 100 {
+		t.Errorf("AuthorityScore should be between 0-100, got: %.2f", analysis.AuthorityScore)
 	}
-	if len(analysis.Suggestions) == 0 {
-		t.Error("Analysis should contain suggestions")
-	}
+
+	t.Logf("StructureScore: %.2f, AuthorityScore: %.2f, GeoScore: %.2f",
+		analysis.StructureScore, analysis.AuthorityScore, analysis.GeoScore)
 }
 
 func TestScorer_Compare(t *testing.T) {

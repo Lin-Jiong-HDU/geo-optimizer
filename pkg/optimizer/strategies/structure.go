@@ -67,18 +67,12 @@ func (s *StructureStrategy) BuildPrompt(req *models.OptimizationRequest) string 
 	return builder.BuildStrategyPrompt(models.StrategyStructure, req)
 }
 
-// hasGoodStructure 检查内容是否已经有良好的结构
+// hasGoodStructure 检查内容是否已有良好的结构
 func (s *StructureStrategy) hasGoodStructure(content string) bool {
-	// 检查是否有标题
 	hasHeading := strings.Contains(content, "# ") || strings.Contains(content, "## ")
-
-	// 检查是否有列表
 	hasList := strings.Contains(content, "- ") || strings.Contains(content, "* ") ||
 		strings.Contains(content, "1. ") || strings.Contains(content, "2. ")
-
-	// 检查是否有分段
 	hasParagraph := strings.Contains(content, "\n\n")
-
 	return hasHeading && (hasList || hasParagraph)
 }
 

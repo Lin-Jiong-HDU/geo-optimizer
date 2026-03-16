@@ -39,13 +39,11 @@ func (f *FAQStrategy) Validate(req *models.OptimizationRequest) bool {
 
 // Preprocess 预处理内容
 func (f *FAQStrategy) Preprocess(content string, req *models.OptimizationRequest) string {
-	// FAQ策略不修改原内容
 	return content
 }
 
 // Postprocess 后处理内容
 func (f *FAQStrategy) Postprocess(content string, req *models.OptimizationRequest) string {
-	// 确保FAQ格式正确
 	return content
 }
 

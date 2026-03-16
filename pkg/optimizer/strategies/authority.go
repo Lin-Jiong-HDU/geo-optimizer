@@ -26,14 +26,11 @@ func (a *AuthorityStrategy) Validate(req *models.OptimizationRequest) bool {
 
 // Preprocess 预处理内容
 func (a *AuthorityStrategy) Preprocess(content string, req *models.OptimizationRequest) string {
-	// 收集企业权威性信息
-	// 目前返回原内容，LLM会在生成时添加权威性元素
 	return content
 }
 
 // Postprocess 后处理内容
 func (a *AuthorityStrategy) Postprocess(content string, req *models.OptimizationRequest) string {
-	// 确保权威性元素被正确添加
 	return content
 }
 

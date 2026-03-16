@@ -304,8 +304,7 @@ func (b *Builder) BuildFAQPrompt(content string, count int) string {
 	if count <= 0 {
 		count = 5
 	}
-	// 企业信息为空，使用模板
-	return fmt.Sprintf(StrategyPromptFAQ, count, content, "")
+	return fmt.Sprintf(StrategyPromptFAQ, fmt.Sprintf("%d", count), content, "")
 }
 
 // BuildFAQPromptWithEnterprise 构建 FAQ 生成 Prompt（带企业信息）
@@ -314,10 +313,9 @@ func (b *Builder) BuildFAQPromptWithEnterprise(content string, count int, enterp
 		count = 5
 	}
 
-	// 构建企业信息
 	enterpriseInfo := b.buildEnterpriseInfoFromInfo(enterprise)
 
-	return fmt.Sprintf(StrategyPromptFAQ, count, content, enterpriseInfo)
+	return fmt.Sprintf(StrategyPromptFAQ, fmt.Sprintf("%d", count), content, enterpriseInfo)
 }
 
 // buildEnterpriseInfoFromInfo 从 EnterpriseInfo 构建企业信息字符串

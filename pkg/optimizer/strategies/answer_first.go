@@ -28,13 +28,9 @@ func (a *AnswerFirstStrategy) Validate(req *models.OptimizationRequest) bool {
 
 // Preprocess 预处理内容
 func (a *AnswerFirstStrategy) Preprocess(content string, req *models.OptimizationRequest) string {
-	// 检查是否已经有明确的结论在前
 	if hasConclusionFirst(content) {
 		return content
 	}
-
-	// TODO: 可以提取内容中的结论并前置
-	// 目前返回原内容
 	return content
 }
 
@@ -50,9 +46,8 @@ func (a *AnswerFirstStrategy) BuildPrompt(req *models.OptimizationRequest) strin
 	return builder.BuildStrategyPrompt(models.StrategyAnswerFirst, req)
 }
 
-// hasConclusionFirst 检查是否已经有结论在前
+// hasConclusionFirst 检查内容开头是否包含结论性词语
 func hasConclusionFirst(content string) bool {
-	// 简单检查前100个字符是否包含结论性词语
 	if len(content) > 100 {
 		content = content[:100]
 	}
@@ -63,6 +58,5 @@ func hasConclusionFirst(content string) bool {
 			return true
 		}
 	}
-
 	return false
 }

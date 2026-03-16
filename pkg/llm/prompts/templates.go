@@ -68,7 +68,7 @@ Schema类型：%s
 	StrategyPromptFAQ = `请为以下内容生成FAQ（常见问题）部分。
 
 要求：
-- 生成%d个常见问题
+- 生成%s个常见问题
 - 每个问题给出简洁准确的答案
 - 问题应该覆盖内容的核心要点
 - 至少有1-2个问题应该自然地提及企业产品或服务，展示产品的价值
@@ -161,10 +161,9 @@ func BuildStrategyPrompt(strategy models.StrategyType, content string, enterpris
 	case models.StrategyFAQ:
 		count := 5
 		if len(extraParams) > 0 {
-			// extraParams[0] is the FAQ count, extraParams[1] is enterprise info
 			return fmt.Sprintf(StrategyPromptFAQ, extraParams[0], content, extraParams[1])
 		}
-		return fmt.Sprintf(StrategyPromptFAQ, count, content, enterpriseInfo)
+		return fmt.Sprintf(StrategyPromptFAQ, fmt.Sprintf("%d", count), content, enterpriseInfo)
 	default:
 		return content
 	}
