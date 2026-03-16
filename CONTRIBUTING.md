@@ -1,142 +1,128 @@
 # Contributing to GEO Optimizer
 
-感谢你考虑为 GEO Optimizer 做出贡献！
+Thank you for considering contributing to GEO Optimizer!
 
-## 目录
+## Table of Contents
 
-- [行为准则](#行为准则)
-- [如何贡献](#如何贡献)
-- [开发环境设置](#开发环境设置)
-- [代码规范](#代码规范)
-- [提交规范](#提交规范)
-- [Pull Request 流程](#pull-request-流程)
+- [Code of Conduct](#code-of-conduct)
+- [How to Contribute](#how-to-contribute)
+- [Development Setup](#development-setup)
+- [Code Guidelines](#code-guidelines)
+- [Commit Convention](#commit-convention)
+- [Pull Request Process](#pull-request-process)
 
-## 行为准则
+## Code of Conduct
 
-- 尊重所有贡献者
-- 保持专业、建设性的讨论
-- 接受建设性批评
+- Be respectful to all contributors
+- Keep discussions professional and constructive
+- Accept constructive criticism gracefully
 
-## 如何贡献
+## How to Contribute
 
-### 报告 Bug
+### Reporting Bugs
 
-如果你发现了 bug，请通过 [GitHub Issues](https://github.com/geo-team-red/geo-optimizer/issues) 提交，包含：
+If you find a bug, please submit an issue with:
 
-1. **问题描述** - 清晰描述发生了什么
-2. **复现步骤** - 如何触发这个 bug
-3. **期望行为** - 你期望发生什么
-4. **实际行为** - 实际发生了什么
-5. **环境信息** - Go 版本、操作系统等
+1. **Description** - Clear description of what happened
+2. **Steps to Reproduce** - How to trigger the bug
+3. **Expected Behavior** - What you expected to happen
+4. **Actual Behavior** - What actually happened
+5. **Environment** - Go version, OS, etc.
 
-### 提出新功能
+### Suggesting Features
 
-新功能建议请通过 Issues 提交，描述：
+For new features, please submit an issue describing:
 
-1. **使用场景** - 这个功能解决什么问题
-2. **建议方案** - 你认为应该如何实现
-3. **替代方案** - 是否有其他解决方式
+1. **Use Case** - What problem does this solve
+2. **Proposed Solution** - How you think it should work
+3. **Alternatives** - Other approaches you've considered
 
-### 提交代码
+### Submitting Code
 
-1. Fork 本仓库
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 开发环境设置
+## Development Setup
 
-### 前置要求
+### Prerequisites
 
 - Go 1.21+
 - Git
-- LLM API Key（用于集成测试）
+- LLM API Key (for integration testing)
 
-### 克隆与构建
+### Clone and Build
 
 ```bash
-# 克隆你的 fork
+# Clone your fork
 git clone https://github.com/YOUR_USERNAME/geo-optimizer.git
 cd geo-optimizer
 
-# 安装依赖
+# Download dependencies
 go mod download
 
-# 运行测试
+# Run tests
 go test ./...
 
-# 构建
+# Build
 go build ./...
 ```
 
-### 运行测试
+### Running Tests
 
 ```bash
-# 运行所有测试
+# Run all tests
 go test ./... -v
 
-# 运行特定包测试
+# Run specific package tests
 go test ./pkg/optimizer -v
 
-# 运行单个测试
+# Run single test
 go test ./pkg/analyzer -run TestScorer -v
 ```
 
-### 代码格式化
+### Code Formatting
 
 ```bash
-# 格式化代码（提交前必须执行）
+# Format code before committing
 go fmt ./...
 ```
 
-## 代码规范
+## Code Guidelines
 
-### 项目结构
+### Project Structure
 
 ```
 pkg/
-├── optimizer/         # 核心优化引擎
-│   └── strategies/    # 策略实现
-├── llm/               # LLM 客户端抽象
-│   └── prompts/       # Prompt 模板
-├── models/            # 数据模型
-├── analyzer/          # 内容评分
-└── config/            # 配置与预设
+├── optimizer/         # Core optimization engine
+│   └── strategies/    # Strategy implementations
+├── llm/               # LLM abstraction layer
+│   └── prompts/       # Prompt templates and builders
+├── models/            # Data models (Request/Response)
+├── analyzer/          # Content analysis and scoring
+└── config/            # Configuration and presets
 ```
 
-### 添加新策略
+### Adding a New Strategy
 
-实现 `Strategy` 接口：
-
-```go
-type Strategy interface {
-    Name() string
-    Type() models.StrategyType
-    Validate(req *models.OptimizationRequest) bool
-    Preprocess(content string, req *models.OptimizationRequest) string
-    Postprocess(content string, req *models.OptimizationRequest) string
-    BuildPrompt(req *models.OptimizationRequest) string
-}
-```
-
-示例：
+Implement the `Strategy` interface:
 
 ```go
-package strategies
-
 import (
     "github.com/geo-team-red/geo-optimizer/pkg/models"
+    "github.com/geo-team-red/geo-optimizer/pkg/optimizer/strategies"
     "github.com/geo-team-red/geo-optimizer/pkg/llm/prompts"
 )
 
 type MyStrategy struct {
-    *BaseStrategy
+    *strategies.BaseStrategy
 }
 
 func NewMyStrategy() *MyStrategy {
     return &MyStrategy{
-        BaseStrategy: NewBaseStrategy("my_strategy", "My Strategy"),
+        BaseStrategy: strategies.NewBaseStrategy("my_strategy", "My Strategy"),
     }
 }
 
@@ -149,9 +135,9 @@ func (s *MyStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 }
 ```
 
-### 添加新 LLM Provider
+### Adding a New LLM Provider
 
-实现 `LLMClient` 接口：
+Implement the `LLMClient` interface:
 
 ```go
 type LLMClient interface {
@@ -159,16 +145,16 @@ type LLMClient interface {
 }
 ```
 
-### 代码风格
+### Code Style
 
-- 遵循 [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
-- 使用 `gofmt` 格式化代码
-- 为导出的函数和类型添加注释
-- 错误信息不要大写开头，不要以标点结尾
+- Follow [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
+- Format code with `gofmt`
+- Add comments for exported functions and types
+- Error messages should not be capitalized or end with punctuation
 
-## 提交规范
+## Commit Convention
 
-使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
+Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 ```
 <type>(<scope>): <description>
@@ -178,19 +164,19 @@ type LLMClient interface {
 [optional footer]
 ```
 
-### Type 类型
+### Types
 
-| Type | 描述 |
-|------|------|
-| `feat` | 新功能 |
-| `fix` | Bug 修复 |
-| `docs` | 文档更新 |
-| `style` | 代码格式（不影响功能） |
-| `refactor` | 代码重构 |
-| `test` | 测试相关 |
-| `chore` | 构建、依赖等 |
+| Type | Description |
+|------|-------------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation |
+| `style` | Code formatting (no functionality change) |
+| `refactor` | Code refactoring |
+| `test` | Testing |
+| `chore` | Build, dependencies, etc. |
 
-### 示例
+### Examples
 
 ```
 feat(optimizer): add keyword density strategy
@@ -202,34 +188,34 @@ feat(optimizer): add keyword density strategy
 Closes #123
 ```
 
-## Pull Request 流程
+## Pull Request Process
 
-1. **确保测试通过** - `go test ./...`
-2. **格式化代码** - `go fmt ./...`
-3. **更新文档** - 如有 API 变更，更新 `API.md`
-4. **添加测试** - 新功能需要测试覆盖
-5. **一个 PR 一个功能** - 保持 PR 聚焦
+1. **Ensure tests pass** - `go test ./...`
+2. **Format code** - `go fmt ./...`
+3. **Update documentation** - Update `API.md` for API changes
+4. **Add tests** - New features need test coverage
+5. **One PR per feature** - Keep PRs focused
 
-### PR 标题格式
+### PR Title Format
 
 ```
 <type>(<scope>): <description>
 ```
 
-示例：`feat(strategies): add keyword optimization strategy`
+Example: `feat(strategies): add keyword optimization strategy`
 
-### Review 检查项
+### Checklist
 
-- [ ] 代码通过所有测试
-- [ ] 代码已格式化
-- [ ] 新代码有适当注释
-- [ ] 文档已更新
-- [ ] 没有引入新的警告
+- [ ] Code passes all tests
+- [ ] Code is formatted with `gofmt`
+- [ ] New code has appropriate comments
+- [ ] Documentation is updated
+- [ ] No new warnings introduced
 
-## 许可证
+## License
 
-通过提交代码，你同意你的贡献将根据 [MIT License](LICENSE) 授权。
+By submitting code, you agree that your contributions will be licensed under the [MIT License](LICENSE).
 
 ---
 
-有问题？随时在 [Issues](https://github.com/geo-team-red/geo-optimizer/issues) 中提问！
+Questions? Feel free to ask in [Issues](https://github.com/geo-team-red/geo-optimizer/issues)!
