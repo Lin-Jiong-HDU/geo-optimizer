@@ -4,7 +4,13 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Lin-Jiong-HDU/geo-optimizer)](https://goreportcard.com/report/github.com/Lin-Jiong-HDU/geo-optimizer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Go library for GEO (Generative Engine Optimization) - optimizing content to improve visibility and citation rates in AI search engines like ChatGPT, Perplexity, and Google AI.
+A **pluggable framework** for GEO (Generative Engine Optimization) in Go. Built-in strategies for common use cases, with full support for custom strategy registration.
+
+**Why this framework?**
+- 🧩 **Pluggable Architecture** - Register your own optimization strategies or use built-in ones
+- 📦 **5 Built-in Strategies** - Structure, Schema, AnswerFirst, Authority, FAQ ready to use
+- 🔌 **Easy Extension** - Implement the `Strategy` interface to add custom logic
+- 🎯 **Composable** - Mix and match strategies for different optimization needs
 
 ## Features
 
@@ -78,6 +84,8 @@ func main() {
 
 ## Optimization Strategies
 
+### Built-in Strategies
+
 | Strategy | Description |
 |----------|-------------|
 | `StrategyStructure` | Adds clear heading hierarchy, bullet points, and organized sections |
@@ -85,6 +93,65 @@ func main() {
 | `StrategyAnswerFirst` | Moves key conclusions to the beginning |
 | `StrategyAuthority` | Enhances with citations, sources, and credentials |
 | `StrategyFAQ` | Generates FAQ sections for common queries |
+
+### Register Custom Strategies
+
+The framework is designed for extensibility. Implement the `Strategy` interface to add your own optimization logic:
+
+```go
+import strategiespkg "github.com/Lin-Jiong-HDU/geo-optimizer/pkg/optimizer/strategies"
+
+// Define your custom strategy
+type SEOStrategy struct {
+    *strategiespkg.BaseStrategy
+    keywords []string
+}
+
+func NewSEOStrategy(keywords []string) *SEOStrategy {
+    return &SEOStrategy{
+        BaseStrategy: strategiespkg.NewBaseStrategy("seo", "SEO Optimization"),
+        keywords:     keywords,
+    }
+}
+
+// Implement the Strategy interface
+func (s *SEOStrategy) Validate(req *models.OptimizationRequest) bool {
+    return len(s.keywords) > 0
+}
+
+func (s *SEOStrategy) BuildPrompt(req *models.OptimizationRequest) string {
+    return fmt.Sprintf("Optimize for keywords: %v\n\n%s", s.keywords, req.Content)
+}
+
+// Register and use your strategy
+func main() {
+    opt := optimizer.New(client)
+
+    // Register custom strategy
+    opt.RegisterStrategy(NewSEOStrategy([]string{"cloud", "AI", "optimization"}))
+
+    // Use it alongside built-in strategies
+    req := &models.OptimizationRequest{
+        Content:    "...",
+        Strategies: []models.StrategyType{"seo", models.StrategyStructure},
+    }
+
+    resp, _ := opt.Optimize(ctx, req)
+}
+```
+
+### Strategy Interface
+
+```go
+type Strategy interface {
+    Name() string
+    Type() models.StrategyType
+    Validate(req *models.OptimizationRequest) bool
+    Preprocess(content string, req *models.OptimizationRequest) string
+    Postprocess(content string, req *models.OptimizationRequest) string
+    BuildPrompt(req *models.OptimizationRequest) string
+}
+```
 
 ## Architecture
 
