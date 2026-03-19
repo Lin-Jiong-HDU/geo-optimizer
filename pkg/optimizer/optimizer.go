@@ -59,17 +59,18 @@ func (o *Optimizer) Optimize(ctx context.Context, req *models.OptimizationReques
 		return nil, fmt.Errorf("request validation failed: %w", err)
 	}
 
-	// 2. 设置默认值
-	o.applyDefaults(req)
+	// 2. 克隆请求并设置默认值（P0 fix: 避免修改原始请求，解决并发安全问题）
+	reqCopy := o.cloneRequest(req)
+	o.applyDefaults(reqCopy)
 
 	// 3. 内容评分（优化前）
-	scoreBefore, err := o.scorer.Score(ctx, req.Content)
+	scoreBefore, err := o.scorer.Score(ctx, reqCopy.Content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to score content before optimization: %w", err)
 	}
 
 	// 4. 策略执行
-	optimizedContent, schemaMarkup, faqSection, totalTokens, llmModel, err := o.executeStrategies(ctx, req)
+	optimizedContent, schemaMarkup, faqSection, totalTokens, llmModel, err := o.executeStrategies(ctx, reqCopy)
 	if err != nil {
 		return nil, fmt.Errorf("strategy execution failed: %w", err)
 	}
@@ -81,7 +82,7 @@ func (o *Optimizer) Optimize(ctx context.Context, req *models.OptimizationReques
 	}
 
 	// 6. 解析响应
-	response := o.buildResponse(req, optimizedContent, schemaMarkup, faqSection, totalTokens, llmModel, scoreBefore, scoreAfter)
+	response := o.buildResponse(reqCopy, optimizedContent, schemaMarkup, faqSection, totalTokens, llmModel, scoreBefore, scoreAfter)
 
 	return response, nil
 }
@@ -93,8 +94,9 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 		return nil, fmt.Errorf("request validation failed: %w", err)
 	}
 
-	// 2. 设置默认值
-	o.applyDefaults(req)
+	// 2. 克隆请求并设置默认值（P0 fix: 避免修改原始请求，解决并发安全问题）
+	reqCopy := o.cloneRequest(req)
+	o.applyDefaults(reqCopy)
 
 	// 3. 获取策略
 	strategy, ok := o.strategies[strategyType]
@@ -103,18 +105,18 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 	}
 
 	// 4. 验证策略是否适用
-	if !strategy.Validate(req) {
+	if !strategy.Validate(reqCopy) {
 		return nil, fmt.Errorf("strategy %s is not applicable to this request", strategyType)
 	}
 
 	// 5. 内容评分（优化前）
-	scoreBefore, err := o.scorer.Score(ctx, req.Content)
+	scoreBefore, err := o.scorer.Score(ctx, reqCopy.Content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to score content before optimization: %w", err)
 	}
 
 	// 6. 执行策略
-	optimizedContent, _, err := o.executeStrategy(ctx, req, strategy)
+	optimizedContent, _, err := o.executeStrategy(ctx, reqCopy, strategy)
 	if err != nil {
 		return nil, fmt.Errorf("strategy execution failed: %w", err)
 	}
@@ -128,7 +130,7 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 	// 8. 构建响应
 	response := &models.OptimizationResponse{
 		OptimizedContent:  optimizedContent,
-		Title:             req.Title,
+		Title:             reqCopy.Title,
 		AppliedStrategies: []models.StrategyType{strategyType},
 		ScoreBefore:       scoreBefore.OverallScore(),
 		ScoreAfter:        scoreAfter.OverallScore(),
@@ -263,6 +265,57 @@ func (o *Optimizer) validateRequest(req *models.OptimizationRequest) error {
 	}
 
 	return nil
+}
+
+// cloneRequest 克隆请求对象，避免修改原始请求（P0 fix: 解决并发安全问题）
+func (o *Optimizer) cloneRequest(req *models.OptimizationRequest) *models.OptimizationRequest {
+	if req == nil {
+		return nil
+	}
+
+	clone := &models.OptimizationRequest{
+		Content:               req.Content,
+		Title:                 req.Title,
+		URL:                   req.URL,
+		Enterprise:            req.Enterprise,
+		TargetAI:              make([]string, len(req.TargetAI)),
+		Keywords:              make([]string, len(req.Keywords)),
+		Strategies:            make([]models.StrategyType, len(req.Strategies)),
+		Tone:                  req.Tone,
+		Industry:              req.Industry,
+		IncludeProductMention: req.IncludeProductMention,
+		MentionFrequency:      req.MentionFrequency,
+		CallToAction:          req.CallToAction,
+		Author:                req.Author,
+		PublishDate:           req.PublishDate,
+	}
+
+	// 复制切片
+	copy(clone.TargetAI, req.TargetAI)
+	copy(clone.Keywords, req.Keywords)
+	copy(clone.Strategies, req.Strategies)
+
+	// 复制竞品信息
+	if req.Competitors != nil {
+		clone.Competitors = make([]models.CompetitorInfo, len(req.Competitors))
+		copy(clone.Competitors, req.Competitors)
+	}
+
+	// 复制 AI 偏好配置（创建新 map 避免并发写入问题）
+	clone.AIPreferences = make(map[string]models.AIPreference)
+	for k, v := range req.AIPreferences {
+		clone.AIPreferences[k] = v
+	}
+
+	// 复制自定义数据
+	if req.CustomData != nil {
+		clone.CustomData = make(map[string]string)
+		for k, v := range req.CustomData {
+			clone.CustomData[k] = v
+		}
+	}
+
+	return clone
 }
 
 // applyDefaults 应用默认值

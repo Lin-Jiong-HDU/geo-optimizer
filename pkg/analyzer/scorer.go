@@ -11,6 +11,68 @@ import (
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
 
+// Pre-compiled regex patterns for performance (P0 fix: avoid repeated compilation)
+var (
+	// Structure scoring patterns
+	headingPattern     = regexp.MustCompile(`(?m)^#{1,6}\s+.+`)
+	sectionPattern     = regexp.MustCompile(`(?m)^#{2,}\s+.+`)
+	orderedListPattern = regexp.MustCompile(`(?m)^\d+\.\s`)
+
+	// Authority scoring patterns
+	dataPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`\d+%\s`),
+		regexp.MustCompile(`\d+\s*(万|千|百)`),
+		regexp.MustCompile(`\d{4}\s*年`),
+		regexp.MustCompile(`(?i)according\s+to`),
+		regexp.MustCompile(`数据显示`),
+		regexp.MustCompile(`研究`),
+		regexp.MustCompile(`报告`),
+	}
+	sourcePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`来源[：:]\s*\w+`),
+		regexp.MustCompile(`据\s*\w+报道`),
+		regexp.MustCompile(`\[\d+\]`),
+		regexp.MustCompile(`\([^)]+\d{4}\)`),
+		regexp.MustCompile(`来源:\s*\[`),
+	}
+	evidencePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`例如`),
+		regexp.MustCompile(`比如`),
+		regexp.MustCompile(`案例`),
+		regexp.MustCompile(`举例`),
+		regexp.MustCompile(`(?i)for\s+example`),
+		regexp.MustCompile(`(?i)for\s+instance`),
+		regexp.MustCompile(`(?i)case\s+study`),
+	}
+
+	// Clarity scoring patterns
+	sentenceSplitPattern = regexp.MustCompile(`[。！？.!?]`)
+
+	// Citation scoring patterns
+	conclusionPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`结论[是为][:：].+`),
+		regexp.MustCompile(`总结[是为][:：].+`),
+		regexp.MustCompile(`总之`),
+		regexp.MustCompile(`因此`),
+		regexp.MustCompile(`(?i)in\s+conclusion`),
+		regexp.MustCompile(`(?i)to\s+sum\s+up`),
+		regexp.MustCompile(`(?i)therefore`),
+	}
+	factPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`\d{4}\s*年[是以是].+`),
+		regexp.MustCompile(`\S+\s*[是为]\s*\d+%\s*[的以上以下]`),
+		regexp.MustCompile(`研究[显示表明].+`),
+	}
+	actionablePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`建议[:：]?`),
+		regexp.MustCompile(`可以[:：]?`),
+		regexp.MustCompile(`推荐[:：]?`),
+		regexp.MustCompile(`(?i)should\s+\S+`),
+		regexp.MustCompile(`(?i)recommend`),
+		regexp.MustCompile(`(?i)suggest`),
+	}
+)
+
 // Scorer 内容评分器
 type Scorer struct {
 	llmClient llm.LLMClient
@@ -98,8 +160,7 @@ func (s *Scorer) scoreByRules(content string) *models.GeoScore {
 func (s *Scorer) calculateStructureScore(content string) float64 {
 	score := 0.0
 
-	// 1. 检查标题层级 (0-30分)
-	headingPattern := regexp.MustCompile(`(?m)^#{1,6}\s+.+`)
+	// 1. 检查标题层级 (0-30分) - 使用预编译正则
 	headings := headingPattern.FindAllString(content, -1)
 	if len(headings) > 0 {
 		score += 15.0
@@ -115,7 +176,7 @@ func (s *Scorer) calculateStructureScore(content string) float64 {
 	if strings.Contains(content, "- ") || strings.Contains(content, "* ") {
 		score += 10.0
 	}
-	if strings.Contains(content, "1.") || regexp.MustCompile(`^\d+\.\s`).MatchString(content) {
+	if strings.Contains(content, "1.") || orderedListPattern.MatchString(content) {
 		score += 10.0
 	}
 
@@ -133,8 +194,8 @@ func (s *Scorer) calculateStructureScore(content string) float64 {
 		score += ratio * 25.0
 	}
 
-	// 4. 检查章节划分 (0-25分)
-	sections := regexp.MustCompile(`(?m)^#{2,}\s+.+`).FindAllString(content, -1)
+	// 4. 检查章节划分 (0-25分) - 使用预编译正则
+	sections := sectionPattern.FindAllString(content, -1)
 	if len(sections) >= 2 {
 		score += 15.0
 	}
@@ -154,18 +215,9 @@ func (s *Scorer) calculateStructureScore(content string) float64 {
 func (s *Scorer) calculateAuthorityScore(content string) float64 {
 	score := 0.0
 
-	// 1. 检查数据支撑 (0-30分)
-	dataPatterns := []string{
-		`\d+%\s`,         // 百分比
-		`\d+\s*(万|千|百)`,  // 中文数字
-		`\d{4}\s*年`,      // 年份
-		`according\s+to`, // "根据"
-		`数据显示`,           // 中文
-		`研究`,             // 研究
-		`报告`,             // 报告
-	}
-	for _, pattern := range dataPatterns {
-		if matched, _ := regexp.MatchString(pattern, content); matched {
+	// 1. 检查数据支撑 (0-30分) - 使用预编译正则
+	for _, re := range dataPatterns {
+		if re.MatchString(content) {
 			score += 5.0
 		}
 	}
@@ -173,17 +225,10 @@ func (s *Scorer) calculateAuthorityScore(content string) float64 {
 		score = 30
 	}
 
-	// 2. 检查来源标注 (0-30分)
-	sourcePatterns := []string{
-		`来源[：:]\s*\w+`,
-		`据\s*\w+报道`,
-		`\[\d+\]`,        // 引用标记
-		`\([^)]+\d{4}\)`, // 学术引用 (Author, 2024)
-		`来源:\s*\[`,       // Markdown链接
-	}
+	// 2. 检查来源标注 (0-30分) - 使用预编译正则
 	sourceCount := 0
-	for _, pattern := range sourcePatterns {
-		matches := regexp.MustCompile(pattern).FindAllString(content, -1)
+	for _, re := range sourcePatterns {
+		matches := re.FindAllString(content, -1)
 		sourceCount += len(matches)
 	}
 	score += float64(sourceCount) * 5.0
@@ -207,14 +252,10 @@ func (s *Scorer) calculateAuthorityScore(content string) float64 {
 		score = 20
 	}
 
-	// 4. 检查具体案例或证据 (0-20分)
-	evidencePatterns := []string{
-		`例如`, `比如`, `案例`, `举例`,
-		`for\s+example`, `for\s+instance`, `case\s+study`,
-	}
+	// 4. 检查具体案例或证据 (0-20分) - 使用预编译正则
 	evidenceCount := 0
-	for _, pattern := range evidencePatterns {
-		if matched, _ := regexp.MatchString(pattern, content); matched {
+	for _, re := range evidencePatterns {
+		if re.MatchString(content) {
 			evidenceCount++
 		}
 	}
@@ -239,8 +280,8 @@ func (s *Scorer) calculateClarityScore(content string) float64 {
 
 	score := 0.0
 
-	// 1. 检查句子长度 (0-30分)
-	sentences := regexp.MustCompile(`[。！？.!?]`).Split(content, -1)
+	// 1. 检查句子长度 (0-30分) - 使用预编译正则
+	sentences := sentenceSplitPattern.Split(content, -1)
 	shortSentences := 0
 	for _, s := range sentences {
 		s = strings.TrimSpace(s)
@@ -307,17 +348,10 @@ func (s *Scorer) calculateClarityScore(content string) float64 {
 func (s *Scorer) calculateCitationScore(content string) float64 {
 	score := 0.0
 
-	// 1. 检查结论性陈述 (0-30分)
-	conclusionPatterns := []string{
-		`结论[是为][:：].+`,
-		`总结[是为][:：].+`,
-		`总之`,
-		`因此`,
-		`in\s+conclusion`, `to\s+sum\s+up`, `therefore`,
-	}
+	// 1. 检查结论性陈述 (0-30分) - 使用预编译正则
 	conclusionCount := 0
-	for _, pattern := range conclusionPatterns {
-		if matched, _ := regexp.MatchString(pattern, content); matched {
+	for _, re := range conclusionPatterns {
+		if re.MatchString(content) {
 			conclusionCount++
 		}
 	}
@@ -326,15 +360,10 @@ func (s *Scorer) calculateCitationScore(content string) float64 {
 		score = 30
 	}
 
-	// 2. 检查事实陈述 (0-30分)
-	factPatterns := []string{
-		`\d{4}\s*年[是以是].+`,
-		`\S+\s*[是为]\s*\d+%\s*[的以上以下]`,
-		`研究[显示表明].+`,
-	}
+	// 2. 检查事实陈述 (0-30分) - 使用预编译正则
 	factCount := 0
-	for _, pattern := range factPatterns {
-		matches := regexp.MustCompile(pattern).FindAllString(content, -1)
+	for _, re := range factPatterns {
+		matches := re.FindAllString(content, -1)
 		factCount += len(matches)
 	}
 	score += float64(factCount) * 5.0
@@ -342,16 +371,10 @@ func (s *Scorer) calculateCitationScore(content string) float64 {
 		score = 30
 	}
 
-	// 3. 检查可操作性建议 (0-20分)
-	actionablePatterns := []string{
-		`建议[:：]?`,
-		`可以[:：]?`,
-		`推荐[:：]?`,
-		`should\s+\S+`, `recommend`, `suggest`,
-	}
+	// 3. 检查可操作性建议 (0-20分) - 使用预编译正则
 	actionableCount := 0
-	for _, pattern := range actionablePatterns {
-		if matched, _ := regexp.MatchString(pattern, content); matched {
+	for _, re := range actionablePatterns {
+		if re.MatchString(content) {
 			actionableCount++
 		}
 	}
