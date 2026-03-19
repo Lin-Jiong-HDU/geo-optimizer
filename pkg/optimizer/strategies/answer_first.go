@@ -46,6 +46,12 @@ func (a *AnswerFirstStrategy) BuildPrompt(req *models.OptimizationRequest) strin
 	return builder.BuildStrategyPrompt(models.StrategyAnswerFirst, req)
 }
 
+// BuildPromptWithContent 使用指定内容构建 Prompt
+func (a *AnswerFirstStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
+	builder := prompts.NewBuilder()
+	return builder.BuildStrategyPromptWithContent(models.StrategyAnswerFirst, content, req)
+}
+
 // hasConclusionFirst 检查内容开头是否包含结论性词语
 func hasConclusionFirst(content string) bool {
 	if len(content) > 100 {

@@ -177,6 +177,25 @@ func (b *Builder) BuildStrategyPrompt(strategy models.StrategyType, req *models.
 	return BuildStrategyPrompt(strategy, content, enterpriseInfo, extraParams...)
 }
 
+// BuildStrategyPromptWithContent 使用指定内容构建策略特定的 Prompt（用于累积优化）
+func (b *Builder) BuildStrategyPromptWithContent(strategy models.StrategyType, content string, req *models.OptimizationRequest) string {
+	extraParams := []string{}
+
+	// 构建企业信息
+	enterpriseInfo := b.buildEnterpriseInfo(req)
+
+	// 预处理内容（根据策略）
+	switch strategy {
+	case models.StrategySchema:
+		extraParams = append(extraParams, "Article")
+	case models.StrategyFAQ:
+		// FAQ需要数量，放在extraParams[0]
+		// 企业信息通过enterpriseInfo参数传递
+	}
+
+	return BuildStrategyPrompt(strategy, content, enterpriseInfo, extraParams...)
+}
+
 // buildEnterpriseInfo 构建企业信息字符串
 func (b *Builder) buildEnterpriseInfo(req *models.OptimizationRequest) string {
 	if req.Enterprise.ProductName == "" && req.Enterprise.ProductDescription == "" &&

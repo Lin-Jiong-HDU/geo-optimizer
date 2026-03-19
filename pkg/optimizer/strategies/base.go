@@ -21,6 +21,10 @@ type Strategy interface {
 	// BuildPrompt 构建策略特定的 Prompt
 	BuildPrompt(req *models.OptimizationRequest) string
 
+	// BuildPromptWithContent 使用指定内容构建 Prompt（用于累积优化）
+	// 当多个策略按顺序执行时，使用此方法传入前序策略优化后的内容
+	BuildPromptWithContent(content string, req *models.OptimizationRequest) string
+
 	// Validate 验证策略是否适用于当前请求
 	Validate(req *models.OptimizationRequest) bool
 }
@@ -67,4 +71,21 @@ func (b *BaseStrategy) Validate(req *models.OptimizationRequest) bool {
 // BuildPrompt 构建策略特定的 Prompt（默认实现：需要在子类中覆盖）
 func (b *BaseStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 	return req.Content
+}
+
+// BuildPromptWithContent 使用指定内容构建 Prompt（默认实现：创建临时请求副本）
+// 子类可以覆盖此方法以提供更高效的实现
+func (b *BaseStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
+	// 默认实现：创建请求副本，替换内容
+	tempReq := &models.OptimizationRequest{
+		Content:       content,
+		Title:         req.Title,
+		Enterprise:    req.Enterprise,
+		Competitors:   req.Competitors,
+		TargetAI:      req.TargetAI,
+		AIPreferences: req.AIPreferences,
+		Keywords:      req.Keywords,
+		Strategies:    req.Strategies,
+	}
+	return b.BuildPrompt(tempReq)
 }

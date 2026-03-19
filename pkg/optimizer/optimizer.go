@@ -139,9 +139,9 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 	return response, nil
 }
 
-// executeStrategies 执行所有策略
+// executeStrategies 执行所有策略（支持累积优化）
 func (o *Optimizer) executeStrategies(ctx context.Context, req *models.OptimizationRequest) (content, schema, faq string, totalTokens int, model string, err error) {
-	content = req.Content
+	currentContent := req.Content // 当前内容（会被更新）
 	schema = ""
 	faq = ""
 	totalTokens = 0
@@ -158,8 +158,8 @@ func (o *Optimizer) executeStrategies(ctx context.Context, req *models.Optimizat
 			continue // 跳过不适用的策略
 		}
 
-		// 执行策略
-		result, chatResp, err := o.executeStrategy(ctx, req, strategy)
+		// 使用新方法：传入当前内容执行策略（支持累积优化）
+		result, chatResp, err := o.executeStrategyWithContent(ctx, currentContent, req, strategy)
 		if err != nil {
 			return "", "", "", 0, "", fmt.Errorf("failed to execute strategy %s: %w", strategyType, err)
 		}
@@ -173,28 +173,28 @@ func (o *Optimizer) executeStrategies(ctx context.Context, req *models.Optimizat
 		// 根据策略类型处理结果
 		switch strategyType {
 		case models.StrategyStructure, models.StrategyAnswerFirst, models.StrategyAuthority:
-			content = result // 替换内容
+			currentContent = result // 累积更新内容
 		case models.StrategySchema:
-			schema = result // 单独存储
+			schema = result // Schema单独存储
 		case models.StrategyFAQ:
-			faq = result
-			content = content + "\n\n" + result // 追加内容
+			faq = result // FAQ单独存储
+			// FAQ不追加到content，保持内容独立
 		}
 	}
 
-	// 如果没有从响应中获取到 schema，尝试从内容中提取
+	// 如果没有生成schema，尝试从最终内容中提取
 	if schema == "" {
-		schema = o.extractSchema(content)
+		schema = o.extractSchema(currentContent)
 	}
-	// 如果没有从响应中获取到 faq，尝试从内容中提取
+	// 如果没有生成faq，尝试从最终内容中提取
 	if faq == "" {
-		faq = o.extractFAQ(content)
+		faq = o.extractFAQ(currentContent)
 	}
 
-	return content, schema, faq, totalTokens, model, nil
+	return currentContent, schema, faq, totalTokens, model, nil
 }
 
-// executeStrategy 执行单个策略
+// executeStrategy 执行单个策略（内部方法，用于单策略优化）
 func (o *Optimizer) executeStrategy(ctx context.Context, req *models.OptimizationRequest, strategy strategiespkg.Strategy) (string, *llm.ChatResponse, error) {
 	_ = strategy.Preprocess(req.Content, req)
 
@@ -214,6 +214,35 @@ func (o *Optimizer) executeStrategy(ctx context.Context, req *models.Optimizatio
 		return "", nil, fmt.Errorf("LLM chat failed: %w", err)
 	}
 
+	result := strategy.Postprocess(chatResp.Content, req)
+
+	return result, chatResp, nil
+}
+
+// executeStrategyWithContent 使用指定内容执行策略（支持累积优化）
+func (o *Optimizer) executeStrategyWithContent(ctx context.Context, content string, req *models.OptimizationRequest, strategy strategiespkg.Strategy) (string, *llm.ChatResponse, error) {
+	// 1. 鄄处理（使用当前内容）
+	preprocessed := strategy.Preprocess(content, req)
+
+	// 2. 构建Prompt（使用预处理后的内容）
+	prompt := strategy.BuildPromptWithContent(preprocessed, req)
+
+	// 3. 调用LLM
+	messages := []llm.Message{
+		{Role: "system", Content: prompts.GetSystemPrompt("optimization")},
+		{Role: "user", Content: prompt},
+	}
+
+	chatResp, err := o.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages:    messages,
+		Temperature: 0.7,
+		MaxTokens:   8000,
+	})
+	if err != nil {
+		return "", nil, fmt.Errorf("LLM chat failed: %w", err)
+	}
+
+	// 4. 后处理
 	result := strategy.Postprocess(chatResp.Content, req)
 
 	return result, chatResp, nil

@@ -39,3 +39,9 @@ func (a *AuthorityStrategy) BuildPrompt(req *models.OptimizationRequest) string 
 	builder := prompts.NewBuilder()
 	return builder.BuildAuthorityPrompt(req.Content, req.Enterprise)
 }
+
+// BuildPromptWithContent 使用指定内容构建 Prompt
+func (a *AuthorityStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
+	builder := prompts.NewBuilder()
+	return builder.BuildAuthorityPrompt(content, req.Enterprise)
+}

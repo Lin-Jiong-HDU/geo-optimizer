@@ -52,6 +52,12 @@ func (s *SchemaStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 	return builder.BuildSchemaPrompt(req.Content, s.schemaType)
 }
 
+// BuildPromptWithContent 使用指定内容构建 Prompt
+func (s *SchemaStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
+	builder := prompts.NewBuilder()
+	return builder.BuildSchemaPrompt(content, s.schemaType)
+}
+
 // SetSchemaType 设置Schema类型
 func (s *SchemaStrategy) SetSchemaType(schemaType string) {
 	s.schemaType = schemaType

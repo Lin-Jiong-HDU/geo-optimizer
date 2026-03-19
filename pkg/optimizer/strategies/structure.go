@@ -67,6 +67,12 @@ func (s *StructureStrategy) BuildPrompt(req *models.OptimizationRequest) string 
 	return builder.BuildStrategyPrompt(models.StrategyStructure, req)
 }
 
+// BuildPromptWithContent 使用指定内容构建 Prompt
+func (s *StructureStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
+	builder := prompts.NewBuilder()
+	return builder.BuildStrategyPromptWithContent(models.StrategyStructure, content, req)
+}
+
 // hasGoodStructure 检查内容是否已有良好的结构
 func (s *StructureStrategy) hasGoodStructure(content string) bool {
 	hasHeading := strings.Contains(content, "# ") || strings.Contains(content, "## ")

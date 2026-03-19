@@ -53,6 +53,12 @@ func (f *FAQStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 	return builder.BuildFAQPromptWithEnterprise(req.Content, f.faqCount, req.Enterprise)
 }
 
+// BuildPromptWithContent 使用指定内容构建 Prompt
+func (f *FAQStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
+	builder := prompts.NewBuilder()
+	return builder.BuildFAQPromptWithEnterprise(content, f.faqCount, req.Enterprise)
+}
+
 // SetFAQCount 设置FAQ数量
 func (f *FAQStrategy) SetFAQCount(count int) {
 	if count > 0 {
