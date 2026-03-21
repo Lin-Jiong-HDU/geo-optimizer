@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./geo-optimizer_logo.png" alt="geo-optimizer" width="500">
+  <img src="./assets/geo-optimizer_logo.png" alt="geo-optimizer" width="500">
   <h1>GEO Optimizer: Make Your Content Visible to AI Engines</h1>
   <p>
     <a href="https://pkg.go.dev/github.com/Lin-Jiong-HDU/geo-optimizer"><img src="https://pkg.go.dev/badge/github.com/Lin-Jiong-HDU/geo-optimizer.svg" alt="Go Reference"></a>
