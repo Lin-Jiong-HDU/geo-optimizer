@@ -1,8 +1,12 @@
-# GEO Optimizer 
-
-[![Go Reference](https://pkg.go.dev/badge/github.com/Lin-Jiong-HDU/geo-optimizer.svg)](https://pkg.go.dev/github.com/Lin-Jiong-HDU/geo-optimizer)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Lin-Jiong-HDU/geo-optimizer)](https://goreportcard.com/report/github.com/Lin-Jiong-HDU/geo-optimizer)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<div align="center">
+  <img src="./geo-optimizer_logo.png" alt="geo-optimizer" width="500">
+  <h1>GEO Optimizer: Make Your Content Visible to AI Engines</h1>
+  <p>
+    <a href="https://pkg.go.dev/github.com/Lin-Jiong-HDU/geo-optimizer"><img src="https://pkg.go.dev/badge/github.com/Lin-Jiong-HDU/geo-optimizer.svg" alt="Go Reference"></a>
+    <a href="https://goreportcard.com/report/github.com/Lin-Jiong-HDU/geo-optimizer"><img src="https://goreportcard.com/badge/github.com/Lin-Jiong-HDU/geo-optimizer" alt="Go Report Card"></a>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  </p>
+</div>
 
 A **pluggable framework** for GEO (Generative Engine Optimization) in Go. Built-in strategies for common use cases, with full support for custom strategy registration.
 
