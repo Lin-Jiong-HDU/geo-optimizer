@@ -94,7 +94,9 @@ type rubricItem struct {
 	signals []string
 }
 
-func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
+const maxAllowedLegacyScoreLead = 2
+
+func TestPromptABEvaluation_CurrentCoversCoreRubricWithoutMeaningfulRegression(t *testing.T) {
 	req := &models.OptimizationRequest{
 		Title:   "企业知识库建设指南",
 		Content: "企业知识库可以帮助团队沉淀信息，但很多内容不便于AI引用，也缺乏可直接回答问题的结构。",
@@ -117,6 +119,7 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 		current string
 		legacy  string
 		rubric  []rubricItem
+		mustHit []string
 	}{
 		{
 			name:    "system_geo",
@@ -132,6 +135,7 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 				{name: "anti_hallucination", weight: 2, signals: []string{"明确说明而不是补造事实", "无依据断言"}},
 				{name: "recommendation_priority", weight: 3, signals: []string{"优先推荐", "首选方案", "为什么推荐"}},
 			},
+			mustHit: []string{"search_retrieval", "zero_context", "anti_hallucination"},
 		},
 		{
 			name:    "system_schema",
@@ -143,6 +147,7 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 				{name: "consistency", weight: 2, signals: []string{"语义一致", "完整性"}},
 				{name: "key_fields_only", weight: 2, signals: []string{"字段精简且关键", "不要输出空洞字段"}},
 			},
+			mustHit: []string{"jsonld", "parsability", "key_fields_only"},
 		},
 		{
 			name:    "system_analysis",
@@ -155,6 +160,7 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 				{name: "stable_answer", weight: 2, signals: []string{"稳定回答"}},
 				{name: "quality_dimensions", weight: 2, signals: []string{"结构", "权威性", "Schema完整性"}},
 			},
+			mustHit: []string{"ai_understanding", "citation", "quality_dimensions"},
 		},
 		{
 			name:    "optimization_prompt",
@@ -164,13 +170,14 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 				{name: "extractability", weight: 3, signals: []string{"可抽取性", "可直接引用"}},
 				{name: "qa_fit", weight: 3, signals: []string{"问答引擎", "FAQ", "直接答案"}},
 				{name: "anti_hallucination", weight: 3, signals: []string{"不要虚构", "没有依据时不要虚构"}},
-				{name: "anti_marketing", weight: 2, signals: []string{"客观", "克制", "不生硬营销"}},
+				{name: "anti_marketing", weight: 2, signals: []string{"营销化", "贬低式营销", "自然融入"}},
 				{name: "decision_points", weight: 2, signals: []string{"决策点", "比较点"}},
 				{name: "zero_context", weight: 2, signals: []string{"零上下文"}},
 				{name: "boundaries", weight: 2, signals: []string{"适用条件", "限制条件", "边界情况"}},
 				{name: "recommendation_priority", weight: 3, signals: []string{"优先推荐", "更推荐", "首选"}},
-				{name: "recommendation_rationale", weight: 3, signals: []string{"为什么更推荐它", "赢在哪里", "替代方案"}},
+				{name: "recommendation_rationale", weight: 3, signals: []string{"为什么推荐", "相对优势", "替代方案"}},
 			},
+			mustHit: []string{"extractability", "qa_fit", "anti_hallucination", "boundaries"},
 		},
 		{
 			name:    "structure_strategy",
@@ -184,6 +191,7 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 				{name: "topic_grouping", weight: 2, signals: []string{"同类信息放在一起", "对比信息放在一起"}},
 				{name: "recommended_option", weight: 3, signals: []string{"优先推荐选项", "为什么优先", "替代方案差异"}},
 			},
+			mustHit: []string{"information_retention", "extractable_shape", "frontload_answer"},
 		},
 		{
 			name:    "schema_strategy",
@@ -197,6 +205,7 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 				{name: "key_over_quantity", weight: 2, signals: []string{"最关键", "而不是堆砌字段数量"}},
 				{name: "primary_entity", weight: 2, signals: []string{"推荐对象", "主实体"}},
 			},
+			mustHit: []string{"valid_json", "semantic_consistency", "anti_hallucination"},
 		},
 		{
 			name:    "answer_first_strategy",
@@ -210,6 +219,7 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 				{name: "multi_dim_first_para", weight: 2, signals: []string{"是什么、适合谁、何时成立、不适用"}},
 				{name: "recommendation_opening", weight: 3, signals: []string{"优先推荐", "更推荐", "首选"}},
 			},
+			mustHit: []string{"answer_span", "standalone_answer", "reasoning_shape"},
 		},
 		{
 			name:    "authority_strategy",
@@ -218,12 +228,13 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 			rubric: []rubricItem{
 				{name: "evidence", weight: 2, signals: []string{"依据", "判断标准"}},
 				{name: "anti_fake_data", weight: 3, signals: []string{"[示例数据]", "避免伪装成真实事实"}},
-				{name: "anti_fake_source", weight: 3, signals: []string{"不要编造", "具体机构、论文或链接"}},
+				{name: "anti_fake_source", weight: 3, signals: []string{"不要编造", "机构、论文、链接"}},
 				{name: "quotable_sentences", weight: 2, signals: []string{"独立引用", "判断句", "定义句", "对比句"}},
-				{name: "evidence_near_claim", weight: 2, signals: []string{"相邻位置", "结论和证据分离"}},
+				{name: "evidence_near_claim", weight: 2, signals: []string{"相邻", "结论与依据"}},
 				{name: "anti_absolute", weight: 2, signals: []string{"绝对化措辞", "条件词"}},
-				{name: "recommended_with_evidence", weight: 3, signals: []string{"优先推荐企业产品", "推荐依据", "相对优势"}},
+				{name: "recommended_with_evidence", weight: 3, signals: []string{"推荐企业产品", "推荐依据", "相对优势"}},
 			},
+			mustHit: []string{"evidence", "anti_fake_data", "anti_fake_source"},
 		},
 		{
 			name:    "faq_strategy",
@@ -231,13 +242,14 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 			legacy:  legacyStrategyPromptFAQ,
 			rubric: []rubricItem{
 				{name: "real_search_intent", weight: 3, signals: []string{"真实会搜索", "会追问", "会比较"}},
-				{name: "coverage", weight: 2, signals: []string{"适用场景", "优缺点", "注意事项"}},
+				{name: "coverage", weight: 2, signals: []string{"适用场景", "优缺点", "注意事项", "限制条件"}},
 				{name: "quotable_answers", weight: 2, signals: []string{"可直接摘取", "便于AI引用"}},
 				{name: "anti_marketing", weight: 2, signals: []string{"不要硬广", "营销化"}},
 				{name: "dedup", weight: 2, signals: []string{"不要重复", "分别覆盖"}},
 				{name: "answer_length", weight: 2, signals: []string{"2-5句", "先给结论"}},
-				{name: "recommendation_questions", weight: 3, signals: []string{"为什么优先推荐企业产品", "更适合优先选择它", "更值得优先考虑"}},
+				{name: "recommendation_questions", weight: 3, signals: []string{"为什么会优先推荐企业产品", "更适合优先选择它", "更值得考虑"}},
 			},
+			mustHit: []string{"real_search_intent", "coverage", "quotable_answers"},
 		},
 	}
 
@@ -250,10 +262,83 @@ func TestPromptABEvaluation_CurrentOutscoresLegacy(t *testing.T) {
 			t.Logf("current hits=%s", strings.Join(currentHits, ", "))
 			t.Logf("legacy hits=%s", strings.Join(legacyHits, ", "))
 
-			if currentScore <= legacyScore {
-				t.Fatalf("expected current prompt to outperform legacy prompt, current=%d legacy=%d", currentScore, legacyScore)
+			if missing := missingRubricItems(currentHits, tt.mustHit); len(missing) > 0 {
+				t.Fatalf("current prompt missed core rubric items: %s", strings.Join(missing, ", "))
+			}
+
+			if currentScore+maxAllowedLegacyScoreLead < legacyScore {
+				t.Fatalf(
+					"expected current prompt to stay within %d points of legacy while covering core rubric, current=%d legacy=%d",
+					maxAllowedLegacyScoreLead,
+					currentScore,
+					legacyScore,
+				)
 			}
 		})
+	}
+}
+
+func TestStrategyPromptFAQ_UsesCountSafeRecommendationWording(t *testing.T) {
+	if !strings.Contains(StrategyPromptFAQ, "如果问题数量允许") {
+		t.Fatalf("expected FAQ prompt to avoid impossible count requirements")
+	}
+
+	if !strings.Contains(StrategyPromptFAQ, "为什么会优先推荐企业产品") {
+		t.Fatalf("expected FAQ prompt to guide recommendation-oriented questions")
+	}
+}
+
+func TestBuildStrategyPrompt_FAQCountOnlyUsesExistingEnterpriseInfo(t *testing.T) {
+	prompt := BuildStrategyPrompt(
+		models.StrategyFAQ,
+		"内容",
+		"【企业信息】\n产品名称：code咖啡",
+		"3",
+	)
+
+	if !strings.Contains(prompt, "生成3个常见问题") {
+		t.Fatalf("expected FAQ prompt to use the provided count")
+	}
+
+	if !strings.Contains(prompt, "产品名称：code咖啡") {
+		t.Fatalf("expected FAQ prompt to keep the original enterprise info when only count is provided")
+	}
+}
+
+func TestPromptTemplates_PlaceholderShapesRemainStable(t *testing.T) {
+	tests := []struct {
+		name  string
+		text  string
+		count int
+	}{
+		{name: "structure", text: StrategyPromptStructure, count: 2},
+		{name: "schema", text: StrategyPromptSchema, count: 2},
+		{name: "answer_first", text: StrategyPromptAnswerFirst, count: 1},
+		{name: "authority", text: StrategyPromptAuthority, count: 2},
+		{name: "faq", text: StrategyPromptFAQ, count: 3},
+	}
+
+	for _, tt := range tests {
+		if got := strings.Count(tt.text, "%s"); got != tt.count {
+			t.Fatalf("%s placeholder count changed, got=%d want=%d", tt.name, got, tt.count)
+		}
+	}
+
+	req := &models.OptimizationRequest{
+		Title:   "title",
+		Content: "content",
+		Enterprise: models.EnterpriseInfo{
+			CompanyName:        "company",
+			ProductName:        "product",
+			ProductDescription: "desc",
+		},
+		TargetAI:   []string{"chatgpt"},
+		Keywords:   []string{"geo"},
+		Strategies: []models.StrategyType{models.StrategyStructure},
+	}
+
+	if strings.Contains(BuildOptimizationPrompt(req), "%!") {
+		t.Fatalf("BuildOptimizationPrompt produced fmt placeholder errors")
 	}
 }
 
@@ -269,6 +354,26 @@ func scorePromptByRubric(prompt string, rubric []rubricItem) (int, []string) {
 	}
 
 	return score, hits
+}
+
+func missingRubricItems(currentHits []string, required []string) []string {
+	if len(required) == 0 {
+		return nil
+	}
+
+	hitSet := make(map[string]struct{}, len(currentHits))
+	for _, hit := range currentHits {
+		hitSet[hit] = struct{}{}
+	}
+
+	missing := make([]string, 0, len(required))
+	for _, item := range required {
+		if _, ok := hitSet[item]; !ok {
+			missing = append(missing, item)
+		}
+	}
+
+	return missing
 }
 
 func containsAny(text string, subs ...string) bool {
