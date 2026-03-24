@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/llm"
@@ -14,6 +15,24 @@ type mockLLMClient struct{}
 func (m *mockLLMClient) Chat(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 	return &llm.ChatResponse{
 		Content:      "{}",
+		TokensUsed:   100,
+		Model:        "test-model",
+		FinishReason: "stop",
+	}, nil
+}
+
+// mockLLMClientForScoring 模拟返回评分JSON的LLM客户端
+type mockLLMClientForScoring struct {
+	response string
+	err      error
+}
+
+func (m *mockLLMClientForScoring) Chat(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &llm.ChatResponse{
+		Content:      m.response,
 		TokensUsed:   100,
 		Model:        "test-model",
 		FinishReason: "stop",
@@ -458,4 +477,115 @@ func TestGeoScore_OverallScore(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestScorer_ScoreWithAI(t *testing.T) {
+	// 模拟LLM返回的评分JSON
+	mockResp := `{
+		"structure": 85,
+		"structure_reason": "内容结构清晰",
+		"authority": 70,
+		"authority_reason": "有数据支撑",
+		"clarity": 90,
+		"clarity_reason": "表达简洁",
+		"citation": 75,
+		"citation_reason": "有可引用结论",
+		"schema": 60,
+		"schema_reason": "缺少结构化标记"
+	}`
+
+	scorer := NewScorer(&mockLLMClientForScoring{response: mockResp})
+	content := "# 测试内容\n\n## 章节\n\n测试内容。"
+
+	result, err := scorer.ScoreWithAI(context.Background(), content)
+	if err != nil {
+		t.Fatalf("ScoreWithAI should not return error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("ScoreWithAI should return non-nil result")
+	}
+
+	// 验证评分类型
+	if result.ScoreType != "ai" {
+		t.Errorf("Expected ScoreType 'ai', got: %s", result.ScoreType)
+	}
+
+	// 验证未降级
+	if result.Degraded {
+		t.Error("Expected Degraded to be false")
+	}
+
+	// 验证分数范围
+	if result.Structure < 0 || result.Structure > 100 {
+		t.Errorf("Structure should be 0-100, got: %.2f", result.Structure)
+	}
+
+	t.Logf("ScoreType: %s, Degraded: %v", result.ScoreType, result.Degraded)
+	t.Logf("Structure: %.2f, Authority: %.2f, Clarity: %.2f, Citation: %.2f, Schema: %.2f",
+		result.Structure, result.Authority, result.Clarity, result.Citation, result.Schema)
+}
+
+func TestScorer_ScoreWithAI_Degraded(t *testing.T) {
+	// 模拟LLM调用失败
+	scorer := NewScorer(&mockLLMClientForScoring{err: fmt.Errorf("timeout")})
+	content := "# 测试内容\n\n测试内容。"
+
+	result, err := scorer.ScoreWithAI(context.Background(), content)
+	if err != nil {
+		t.Fatalf("ScoreWithAI should not return error even on LLM failure: %v", err)
+	}
+
+	// 验证已降级
+	if !result.Degraded {
+		t.Error("Expected Degraded to be true")
+	}
+
+	if result.ScoreType != "rules" {
+		t.Errorf("Expected ScoreType 'rules', got: %s", result.ScoreType)
+	}
+
+	if result.ErrorMessage == "" {
+		t.Error("Expected ErrorMessage to be set")
+	}
+
+	t.Logf("Degraded: %v, ScoreType: %s, ErrorMessage: %s",
+		result.Degraded, result.ScoreType, result.ErrorMessage)
+}
+
+func TestScorer_CompareWithAI(t *testing.T) {
+	mockResp := `{
+		"structure": 80,
+		"authority": 70,
+		"clarity": 85,
+		"citation": 75,
+		"schema": 60
+	}`
+
+	scorer := NewScorer(&mockLLMClientForScoring{response: mockResp})
+
+	before := "简单内容"
+	after := "# 优化后内容\n\n## 章节\n\n优化后的内容。"
+
+	comparison, err := scorer.CompareWithAI(context.Background(), before, after)
+	if err != nil {
+		t.Fatalf("CompareWithAI should not return error: %v", err)
+	}
+
+	if comparison.Before == nil {
+		t.Fatal("Before should not be nil")
+	}
+	if comparison.After == nil {
+		t.Fatal("After should not be nil")
+	}
+
+	// 验证Improvements
+	if comparison.Improvements == nil {
+		t.Fatal("Improvements should not be nil")
+	}
+
+	t.Logf("Before: %.2f, After: %.2f, Change: %.2f",
+		comparison.Before.OverallScore(),
+		comparison.After.OverallScore(),
+		comparison.TotalChange)
 }
