@@ -39,3 +39,9 @@ go.work.sum
 
 # Air live reload tool
 tmp/
+
+# Local docs (keep locally, don't push)
+docs/模块设计文档-优化器与评分系统.md
+docs/产品原型.md
+docs/GEO优化器设计文档.md
+docs/glm-api-doc.md
