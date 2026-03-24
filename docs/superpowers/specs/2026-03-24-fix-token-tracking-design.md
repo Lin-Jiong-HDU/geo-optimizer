@@ -20,7 +20,7 @@ Add `TokensUsed` field to return structures and fix token accumulation in method
 
 ## Changes
 
-### 1. ScoreResult (`pkg/models/scorer.go`)
+### 1. ScoreResult (`pkg/models/content.go`)
 
 Add `TokensUsed` field:
 

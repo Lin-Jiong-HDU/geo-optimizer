@@ -31,15 +31,15 @@ func (s *Scorer) ScoreWithAI(ctx context.Context, content string) (*models.Score
 	// 调用LLM
 	resp, err := s.llmClient.Chat(ctx, req)
 	if err != nil {
-		// 降级到规则评分
-		return s.degradeToRuleScore(content, fmt.Sprintf("LLM调用失败: %v", err)), nil
+		// 降级到规则评分（LLM调用失败，无token消耗）
+		return s.degradeToRuleScore(content, fmt.Sprintf("LLM调用失败: %v", err), 0), nil
 	}
 
 	// 解析响应
 	score, err := s.parseAIResponse(resp.Content)
 	if err != nil {
-		// 降级到规则评分
-		return s.degradeToRuleScore(content, fmt.Sprintf("解析LLM响应失败: %v", err)), nil
+		// 降级到规则评分（LLM调用成功但解析失败，保留token计数）
+		return s.degradeToRuleScore(content, fmt.Sprintf("解析LLM响应失败: %v", err), resp.TokensUsed), nil
 	}
 
 	return &models.ScoreResult{
@@ -111,14 +111,14 @@ func (s *Scorer) parseAIResponse(content string) (*models.GeoScore, error) {
 }
 
 // degradeToRuleScore 降级到规则评分
-func (s *Scorer) degradeToRuleScore(content string, errMsg string) *models.ScoreResult {
+func (s *Scorer) degradeToRuleScore(content string, errMsg string, tokensUsed int) *models.ScoreResult {
 	score := s.scoreByRules(content)
 	return &models.ScoreResult{
 		GeoScore:     score,
 		ScoreType:    "rules",
 		Degraded:     true,
 		ErrorMessage: errMsg,
-		TokensUsed:   0,
+		TokensUsed:   tokensUsed,
 	}
 }
 
