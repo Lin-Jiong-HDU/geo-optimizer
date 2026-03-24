@@ -116,7 +116,7 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 	}
 
 	// 6. 执行策略
-	optimizedContent, _, err := o.executeStrategy(ctx, reqCopy, strategy)
+	optimizedContent, chatResp, err := o.executeStrategy(ctx, reqCopy, strategy)
 	if err != nil {
 		return nil, fmt.Errorf("strategy execution failed: %w", err)
 	}
@@ -136,6 +136,8 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 		ScoreAfter:        scoreAfter.OverallScore(),
 		GeneratedAt:       time.Now(),
 		Version:           "1.0.0",
+		LLMModel:          chatResp.Model,
+		TokensUsed:        chatResp.TokensUsed,
 	}
 
 	return response, nil

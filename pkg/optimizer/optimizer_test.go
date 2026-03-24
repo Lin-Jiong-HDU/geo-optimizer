@@ -333,3 +333,33 @@ func newMockStrategy() *mockStrategy {
 		BaseStrategy: strategiespkg.NewBaseStrategy("mock", "mock"),
 	}
 }
+
+func TestOptimizer_OptimizeWithStrategy_TokensUsed(t *testing.T) {
+	mockClient := &mockLLMClient{}
+	opt := New(mockClient)
+
+	req := &models.OptimizationRequest{
+		Content: "测试内容",
+		Title:   "测试标题",
+		Strategies: []models.StrategyType{
+			models.StrategyStructure,
+		},
+	}
+
+	resp, err := opt.OptimizeWithStrategy(context.Background(), req, models.StrategyStructure)
+	if err != nil {
+		t.Fatalf("OptimizeWithStrategy should not return error: %v", err)
+	}
+
+	// 验证 TokensUsed 被正确返回
+	if resp.TokensUsed != 100 {
+		t.Errorf("Expected TokensUsed 100, got: %d", resp.TokensUsed)
+	}
+
+	// 验证 LLMModel 被正确返回
+	if resp.LLMModel != "test-model" {
+		t.Errorf("Expected LLMModel 'test-model', got: %s", resp.LLMModel)
+	}
+
+	t.Logf("TokensUsed: %d, LLMModel: %s", resp.TokensUsed, resp.LLMModel)
+}
