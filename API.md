@@ -309,7 +309,10 @@ opt.RegisterStrategy(myCustomStrategy)
 
 ### 评分器
 
-评分器对内容进行 GEO 质量评分，支持规则基础的快速评分。
+评分器对内容进行 GEO 质量评分，支持两种模式：
+
+- **规则评分**：基于正则规则的快速评分，无需 LLM 调用
+- **AI 评分**：使用 LLM 进行语义评分，更准确但需要 API 调用（失败时自动降级到规则评分）
 
 #### 创建评分器
 
@@ -339,6 +342,12 @@ func (s *Scorer) Score(ctx context.Context, content string) (*models.GeoScore, e
 
 // Compare 对比优化前后的评分
 func (s *Scorer) Compare(ctx context.Context, before, after string) (*ScoreComparison, error)
+
+// ScoreWithAI 使用 LLM 进行 AI 评分（更准确的语义评分）
+func (s *Scorer) ScoreWithAI(ctx context.Context, content string) (*ScoreResult, error)
+
+// CompareWithAI 使用 AI 评分对比优化前后内容
+func (s *Scorer) CompareWithAI(ctx context.Context, before, after string) (*ScoreComparisonResult, error)
 ```
 
 **示例**:
@@ -355,6 +364,19 @@ fmt.Printf("总分提升: %.2f → %.2f (%.2f%%)\n",
     comparison.Before.OverallScore(),
     comparison.After.OverallScore(),
     comparison.TotalChange)
+
+// AI 评分（更准确的语义评分）
+result, err := scorer.ScoreWithAI(ctx, content)
+if result.Degraded {
+    fmt.Printf("AI 评分降级: %s\n", result.ErrorMessage)
+}
+fmt.Printf("评分类型: %s, 总分: %.2f\n", result.ScoreType, result.OverallScore())
+
+// AI 评分对比
+aiComparison, err := scorer.CompareWithAI(ctx, originalContent, optimizedContent)
+fmt.Printf("AI 评分提升: %.2f → %.2f\n",
+    aiComparison.Before.OverallScore(),
+    aiComparison.After.OverallScore())
 ```
 
 #### 评分维度
@@ -674,6 +696,32 @@ type GeoScore struct {
 
 // OverallScore 计算总体评分（五个维度的平均值）
 func (g *GeoScore) OverallScore() float64
+```
+
+#### ScoreResult - 评分结果
+
+```go
+// ScoreResult 评分结果（支持 AI 评分和规则评分）
+type ScoreResult struct {
+    *GeoScore // 复用现有 5 维度评分
+
+    // 元信息
+    ScoreType    string // 评分类型: "ai" 或 "rules"
+    Degraded     bool   // 是否从 AI 降级到规则评分
+    ErrorMessage string // 降级时的错误信息（可选）
+}
+```
+
+#### ScoreComparisonResult - AI 评分对比结果
+
+```go
+// ScoreComparisonResult AI 评分对比结果
+type ScoreComparisonResult struct {
+    Before       *ScoreResult       // 优化前评分
+    After        *ScoreResult       // 优化后评分
+    Improvements map[string]float64 // 各维度提升幅度
+    TotalChange  float64            // 总分变化
+}
 ```
 
 #### StrategyType - 策略类型
