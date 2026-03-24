@@ -350,7 +350,7 @@ func (s *Scorer) ScoreWithAI(ctx context.Context, content string) (*ScoreResult,
 func (s *Scorer) CompareWithAI(ctx context.Context, before, after string) (*ScoreComparisonResult, error)
 
 // ScoreWithSuggestions 评分并返回改进建议（一次LLM调用）
-func (s *Scorer) ScoreWithSuggestions(ctx context.Context, content string) (*models.ScoreResultWithSuggestions, error)
+func (s *Scorer) ScoreWithSuggestions(ctx context.Context, content string) (*ScoreResultWithSuggestions, error)
 ```
 
 **示例**:
@@ -383,13 +383,16 @@ fmt.Printf("AI 评分提升: %.2f → %.2f\n",
 
 // 评分并获取改进建议
 resultWithSuggestions, err := scorer.ScoreWithSuggestions(ctx, content)
+if err != nil {
+    log.Fatalf("评分失败: %v", err)
+}
 if resultWithSuggestions.Degraded {
     fmt.Printf("评分降级: %s\n", resultWithSuggestions.ErrorMessage)
 }
 fmt.Printf("总分: %.2f\n", resultWithSuggestions.OverallScore())
-for i, s := range resultWithSuggestions.TopSuggestions {
+for i, sugg := range resultWithSuggestions.TopSuggestions {
     fmt.Printf("建议 %d: [%s] %s (预估提升 %.0f 分)\n",
-        i+1, s.Priority, s.Direction, s.EstimatedGain)
+        i+1, sugg.Priority, sugg.Direction, sugg.EstimatedGain)
 }
 ```
 
