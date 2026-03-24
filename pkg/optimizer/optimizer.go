@@ -127,18 +127,20 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 		return nil, fmt.Errorf("failed to score content after optimization: %w", err)
 	}
 
-	// 8. 构建响应
-	response := &models.OptimizationResponse{
-		OptimizedContent:  optimizedContent,
-		Title:             reqCopy.Title,
-		AppliedStrategies: []models.StrategyType{strategyType},
-		ScoreBefore:       scoreBefore.OverallScore(),
-		ScoreAfter:        scoreAfter.OverallScore(),
-		GeneratedAt:       time.Now(),
-		Version:           "1.0.0",
-		LLMModel:          chatResp.Model,
-		TokensUsed:        chatResp.TokensUsed,
+	// 8. 构建响应（使用 buildResponse 保持与 Optimize 一致）
+	// 根据策略类型确定 schema 和 faq 内容
+	var schemaMarkup, faqSection string
+	switch strategyType {
+	case models.StrategySchema:
+		schemaMarkup = optimizedContent
+		optimizedContent = reqCopy.Content // Schema策略不修改主体内容
+	case models.StrategyFAQ:
+		faqSection = optimizedContent
+		optimizedContent = reqCopy.Content // FAQ策略不修改主体内容
 	}
+
+	response := o.buildResponse(reqCopy, optimizedContent, schemaMarkup, faqSection, chatResp.TokensUsed, chatResp.Model, scoreBefore, scoreAfter)
+	response.AppliedStrategies = []models.StrategyType{strategyType} // 覆盖为单策略
 
 	return response, nil
 }
