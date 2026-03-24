@@ -45,3 +45,13 @@ type GeoScore struct {
 func (g *GeoScore) OverallScore() float64 {
 	return (g.Structure + g.Authority + g.Clarity + g.Citation + g.Schema) / 5.0
 }
+
+// ScoreResult 评分结果（支持AI评分和规则评分）
+type ScoreResult struct {
+	*GeoScore // 复用现有5维度评分
+
+	// 元信息
+	ScoreType    string `json:"score_type"`    // "ai" 或 "rules"
+	Degraded     bool   `json:"degraded"`      // 是否从AI降级到规则
+	ErrorMessage string `json:"error_message"` // 降级时的错误信息（可选）
+}
