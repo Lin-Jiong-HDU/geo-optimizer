@@ -589,3 +589,28 @@ func TestScorer_CompareWithAI(t *testing.T) {
 		comparison.After.OverallScore(),
 		comparison.TotalChange)
 }
+
+func TestScorer_ScoreWithAI_TokensUsed(t *testing.T) {
+	mockResp := `{
+		"structure": 85,
+		"authority": 70,
+		"clarity": 90,
+		"citation": 75,
+		"schema": 60
+	}`
+
+	scorer := NewScorer(&mockLLMClientForScoring{response: mockResp})
+	content := "# 测试内容\n\n测试内容。"
+
+	result, err := scorer.ScoreWithAI(context.Background(), content)
+	if err != nil {
+		t.Fatalf("ScoreWithAI should not return error: %v", err)
+	}
+
+	// 验证 TokensUsed 被正确返回
+	if result.TokensUsed != 100 {
+		t.Errorf("Expected TokensUsed 100, got: %d", result.TokensUsed)
+	}
+
+	t.Logf("TokensUsed: %d", result.TokensUsed)
+}

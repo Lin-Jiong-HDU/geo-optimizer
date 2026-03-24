@@ -43,9 +43,10 @@ func (s *Scorer) ScoreWithAI(ctx context.Context, content string) (*models.Score
 	}
 
 	return &models.ScoreResult{
-		GeoScore:  score,
-		ScoreType: "ai",
-		Degraded:  false,
+		GeoScore:   score,
+		ScoreType:  "ai",
+		Degraded:   false,
+		TokensUsed: resp.TokensUsed,
 	}, nil
 }
 
@@ -116,6 +117,7 @@ func (s *Scorer) degradeToRuleScore(content string, errMsg string) *models.Score
 		ScoreType:    "rules",
 		Degraded:     true,
 		ErrorMessage: errMsg,
+		TokensUsed:   0,
 	}
 }
 

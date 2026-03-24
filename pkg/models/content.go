@@ -54,4 +54,5 @@ type ScoreResult struct {
 	ScoreType    string `json:"score_type"`    // "ai" 或 "rules"
 	Degraded     bool   `json:"degraded"`      // 是否从AI降级到规则
 	ErrorMessage string `json:"error_message"` // 降级时的错误信息（可选）
+	TokensUsed   int    `json:"tokens_used"`   // AI评分消耗的token数（规则评分为0）
 }
