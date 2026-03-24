@@ -80,6 +80,7 @@ func (s *Scorer) CompareWithAI(ctx context.Context, before, after string) (*Scor
 		After:        scoreAfter,
 		Improvements: improvements,
 		TotalChange:  totalChange,
+		TokensUsed:   scoreBefore.TokensUsed + scoreAfter.TokensUsed,
 	}, nil
 }
 
@@ -138,4 +139,5 @@ type ScoreComparisonResult struct {
 	After        *models.ScoreResult `json:"after"`
 	Improvements map[string]float64  `json:"improvements"`
 	TotalChange  float64             `json:"total_change"`
+	TokensUsed   int                 `json:"tokens_used"` // 两次评分总token数
 }

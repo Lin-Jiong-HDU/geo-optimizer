@@ -614,3 +614,38 @@ func TestScorer_ScoreWithAI_TokensUsed(t *testing.T) {
 
 	t.Logf("TokensUsed: %d", result.TokensUsed)
 }
+
+func TestScorer_CompareWithAI_TokensUsed(t *testing.T) {
+	mockResp := `{
+		"structure": 80,
+		"authority": 70,
+		"clarity": 85,
+		"citation": 75,
+		"schema": 60
+	}`
+
+	scorer := NewScorer(&mockLLMClientForScoring{response: mockResp})
+
+	before := "简单内容"
+	after := "# 优化后内容\n\n优化后的内容。"
+
+	comparison, err := scorer.CompareWithAI(context.Background(), before, after)
+	if err != nil {
+		t.Fatalf("CompareWithAI should not return error: %v", err)
+	}
+
+	// 验证 TokensUsed 是两次调用的总和 (100 + 100 = 200)
+	if comparison.TokensUsed != 200 {
+		t.Errorf("Expected TokensUsed 200, got: %d", comparison.TokensUsed)
+	}
+
+	// 验证 Before 和 After 的 TokensUsed 也被正确设置
+	if comparison.Before.TokensUsed != 100 {
+		t.Errorf("Expected Before.TokensUsed 100, got: %d", comparison.Before.TokensUsed)
+	}
+	if comparison.After.TokensUsed != 100 {
+		t.Errorf("Expected After.TokensUsed 100, got: %d", comparison.After.TokensUsed)
+	}
+
+	t.Logf("Total TokensUsed: %d", comparison.TokensUsed)
+}
