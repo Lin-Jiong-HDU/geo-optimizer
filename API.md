@@ -348,6 +348,9 @@ func (s *Scorer) ScoreWithAI(ctx context.Context, content string) (*ScoreResult,
 
 // CompareWithAI 使用 AI 评分对比优化前后内容
 func (s *Scorer) CompareWithAI(ctx context.Context, before, after string) (*ScoreComparisonResult, error)
+
+// ScoreWithSuggestions 评分并返回改进建议（一次LLM调用）
+func (s *Scorer) ScoreWithSuggestions(ctx context.Context, content string) (*models.ScoreResultWithSuggestions, error)
 ```
 
 **示例**:
@@ -377,6 +380,17 @@ aiComparison, err := scorer.CompareWithAI(ctx, originalContent, optimizedContent
 fmt.Printf("AI 评分提升: %.2f → %.2f\n",
     aiComparison.Before.OverallScore(),
     aiComparison.After.OverallScore())
+
+// 评分并获取改进建议
+resultWithSuggestions, err := scorer.ScoreWithSuggestions(ctx, content)
+if resultWithSuggestions.Degraded {
+    fmt.Printf("评分降级: %s\n", resultWithSuggestions.ErrorMessage)
+}
+fmt.Printf("总分: %.2f\n", resultWithSuggestions.OverallScore())
+for i, s := range resultWithSuggestions.TopSuggestions {
+    fmt.Printf("建议 %d: [%s] %s (预估提升 %.0f 分)\n",
+        i+1, s.Priority, s.Direction, s.EstimatedGain)
+}
 ```
 
 #### 评分维度
@@ -721,6 +735,33 @@ type ScoreComparisonResult struct {
     After        *ScoreResult       // 优化后评分
     Improvements map[string]float64 // 各维度提升幅度
     TotalChange  float64            // 总分变化
+}
+```
+
+#### Suggestion - 改进建议
+
+```go
+// Suggestion 单条改进建议
+type Suggestion struct {
+    Issue         string  // 问题描述
+    Direction     string  // 改进方向
+    Priority      string  // 优先级: high/medium/low
+    EstimatedGain float64 // 预估提升分数 (0-20)
+    Example       string  // 示例片段（可选）
+}
+```
+
+#### ScoreResultWithSuggestions - 带建议的评分结果
+
+```go
+// ScoreResultWithSuggestions 带建议的评分结果
+type ScoreResultWithSuggestions struct {
+    *ScoreResult // 复用评分结果
+
+    // 维度级建议 (key: structure/authority/clarity/citation/schema)
+    DimensionSuggestions map[string][]Suggestion
+    // 整体优先建议（按优先级和预估提升排序，最多5条）
+    TopSuggestions []Suggestion
 }
 ```
 
