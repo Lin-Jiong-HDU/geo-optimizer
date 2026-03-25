@@ -7,26 +7,24 @@ import (
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
 
-// AnswerFirstStrategy 答案优先策略
-// 将关键结论放在内容开头，便于AI快速提取
+// AnswerFirstStrategy places key conclusions at the beginning of content for easy AI extraction.
 type AnswerFirstStrategy struct {
 	*BaseStrategy
 }
 
-// NewAnswerFirstStrategy 创建答案优先策略
+// NewAnswerFirstStrategy creates a new answer-first strategy.
 func NewAnswerFirstStrategy() *AnswerFirstStrategy {
 	return &AnswerFirstStrategy{
 		BaseStrategy: NewBaseStrategy(models.StrategyAnswerFirst, "answer_first"),
 	}
 }
 
-// Validate 验证策略是否适用
+// Validate checks if the strategy is applicable.
 func (a *AnswerFirstStrategy) Validate(req *models.OptimizationRequest) bool {
-	// 答案优先策略需要内容不为空
 	return req.Content != ""
 }
 
-// Preprocess 预处理内容
+// Preprocess preprocesses content before optimization.
 func (a *AnswerFirstStrategy) Preprocess(content string, req *models.OptimizationRequest) string {
 	if hasConclusionFirst(content) {
 		return content
@@ -34,31 +32,30 @@ func (a *AnswerFirstStrategy) Preprocess(content string, req *models.Optimizatio
 	return content
 }
 
-// Postprocess 后处理内容
+// Postprocess postprocesses content after optimization.
 func (a *AnswerFirstStrategy) Postprocess(content string, req *models.OptimizationRequest) string {
-	// 确保结论在前
 	return content
 }
 
-// BuildPrompt 构建答案优先提示词
+// BuildPrompt builds the answer-first optimization prompt.
 func (a *AnswerFirstStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 	builder := prompts.NewBuilder()
 	return builder.BuildStrategyPrompt(models.StrategyAnswerFirst, req)
 }
 
-// BuildPromptWithContent 使用指定内容构建 Prompt
+// BuildPromptWithContent builds the prompt with specified content.
 func (a *AnswerFirstStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
 	builder := prompts.NewBuilder()
 	return builder.BuildStrategyPromptWithContent(models.StrategyAnswerFirst, content, req)
 }
 
-// hasConclusionFirst 检查内容开头是否包含结论性词语
+// hasConclusionFirst checks if content starts with conclusion words.
 func hasConclusionFirst(content string) bool {
 	if len(content) > 100 {
 		content = content[:100]
 	}
 
-	conclusionWords := []string{"结论", "总结", "总之", "简而言之", "答案是"}
+	conclusionWords := []string{"conclusion", "summary", "in short", "the answer is", "结论", "总结", "总之", "简而言之", "答案是"}
 	for _, word := range conclusionWords {
 		if strings.Contains(content, word) {
 			return true

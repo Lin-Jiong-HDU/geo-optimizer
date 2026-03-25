@@ -1,31 +1,25 @@
 package llm
 
-// Provider LLM提供商类型
+// Provider represents the type of LLM provider.
 type Provider string
 
+// LLM provider constants.
 const (
-	ProviderGLM       Provider = "glm"       // 智谱AI (GLM)
+	ProviderGLM       Provider = "glm"       // Zhipu AI (GLM)
 	ProviderOpenAI    Provider = "openai"    // OpenAI
 	ProviderAnthropic Provider = "anthropic" // Anthropic (Claude)
 	ProviderAzure     Provider = "azure"     // Azure OpenAI
 	ProviderGoogle    Provider = "google"    // Google (Gemini)
-	ProviderCustom    Provider = "custom"    // 自定义端点
+	ProviderCustom    Provider = "custom"    // Custom endpoint
 )
 
-// Config LLM客户端配置
+// Config holds the LLM client configuration.
 type Config struct {
-	// 提供商
-	Provider Provider `json:"provider"`
-	// API密钥
-	APIKey string `json:"api_key"`
-	// 自定义端点URL（可选）
-	BaseURL string `json:"base_url,omitempty"`
-	// 模型名称
-	Model string `json:"model"`
-	// 最大token数
-	MaxTokens int `json:"max_tokens"`
-	// 温度参数
-	Temperature float64 `json:"temperature"`
-	// 请求超时时间（秒）
-	Timeout int `json:"timeout"`
+	Provider    Provider `json:"provider"`
+	APIKey      string   `json:"api_key"`
+	BaseURL     string   `json:"base_url,omitempty"`
+	Model       string   `json:"model"`
+	MaxTokens   int      `json:"max_tokens"`
+	Temperature float64  `json:"temperature"`
+	Timeout     int      `json:"timeout"` // Request timeout in seconds
 }

@@ -5,14 +5,13 @@ import (
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
 
-// FAQStrategy FAQ生成策略
-// 为内容生成常见问题部分，提高内容的可引用性
+// FAQStrategy generates FAQ sections to improve content citability.
 type FAQStrategy struct {
 	*BaseStrategy
 	faqCount int
 }
 
-// NewFAQStrategy 创建FAQ策略
+// NewFAQStrategy creates a new FAQ strategy.
 func NewFAQStrategy() *FAQStrategy {
 	return &FAQStrategy{
 		BaseStrategy: NewBaseStrategy(models.StrategyFAQ, "faq"),
@@ -20,7 +19,7 @@ func NewFAQStrategy() *FAQStrategy {
 	}
 }
 
-// NewFAQStrategyWithCount 创建指定数量的FAQ策略
+// NewFAQStrategyWithCount creates an FAQ strategy with a specific count.
 func NewFAQStrategyWithCount(count int) *FAQStrategy {
 	if count <= 0 {
 		count = 5
@@ -31,42 +30,41 @@ func NewFAQStrategyWithCount(count int) *FAQStrategy {
 	}
 }
 
-// Validate 验证策略是否适用
+// Validate checks if the strategy is applicable.
 func (f *FAQStrategy) Validate(req *models.OptimizationRequest) bool {
-	// FAQ策略需要内容不为空
 	return req.Content != ""
 }
 
-// Preprocess 预处理内容
+// Preprocess preprocesses content before optimization.
 func (f *FAQStrategy) Preprocess(content string, req *models.OptimizationRequest) string {
 	return content
 }
 
-// Postprocess 后处理内容
+// Postprocess postprocesses content after optimization.
 func (f *FAQStrategy) Postprocess(content string, req *models.OptimizationRequest) string {
 	return content
 }
 
-// BuildPrompt 构建FAQ生成提示词
+// BuildPrompt builds the FAQ generation prompt.
 func (f *FAQStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 	builder := prompts.NewBuilder()
 	return builder.BuildFAQPromptWithEnterprise(req.Content, f.faqCount, req.Enterprise)
 }
 
-// BuildPromptWithContent 使用指定内容构建 Prompt
+// BuildPromptWithContent builds the prompt with specified content.
 func (f *FAQStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
 	builder := prompts.NewBuilder()
 	return builder.BuildFAQPromptWithEnterprise(content, f.faqCount, req.Enterprise)
 }
 
-// SetFAQCount 设置FAQ数量
+// SetFAQCount sets the FAQ count.
 func (f *FAQStrategy) SetFAQCount(count int) {
 	if count > 0 {
 		f.faqCount = count
 	}
 }
 
-// GetFAQCount 获取FAQ数量
+// GetFAQCount returns the FAQ count.
 func (f *FAQStrategy) GetFAQCount() int {
 	return f.faqCount
 }

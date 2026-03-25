@@ -7,52 +7,46 @@ import (
 	"strings"
 )
 
-// Parser LLM响应解析器
+// Parser handles parsing of LLM responses.
 type Parser struct{}
 
-// NewParser 创建解析器
+// NewParser creates a new Parser instance.
 func NewParser() *Parser {
 	return &Parser{}
 }
 
-// ParseOptimizationResponse 解析优化响应
+// ParseOptimizationResponse parses an optimization response.
 func (p *Parser) ParseOptimizationResponse(content string) (*ParseResult, error) {
 	result := &ParseResult{
 		OptimizedContent: content,
 		Sections:         make(map[string]string),
 	}
 
-	// 尝试提取JSON部分
 	if jsonPart := p.extractJSON(content); jsonPart != "" {
 		result.JSONData = jsonPart
 
-		// 尝试解析为结构化数据
 		var structuredData map[string]interface{}
 		if err := json.Unmarshal([]byte(jsonPart), &structuredData); err == nil {
 			result.StructuredData = structuredData
 		}
 	}
 
-	// 提取常见章节
-	result.Sections["summary"] = p.extractSection(content, []string{"摘要", "Summary", "概述"})
-	result.Sections["faq"] = p.extractSection(content, []string{"FAQ", "常见问题", "常见问答"})
-	result.Sections["schema"] = p.extractSection(content, []string{"Schema", "JSON-LD", "结构化数据"})
+	result.Sections["summary"] = p.extractSection(content, []string{"Summary", "Overview", "摘要", "概述"})
+	result.Sections["faq"] = p.extractSection(content, []string{"FAQ", "Frequently Asked Questions", "常见问题"})
+	result.Sections["schema"] = p.extractSection(content, []string{"Schema", "JSON-LD", "Structured Data", "结构化数据"})
 
-	// 提取产品提及
 	result.ProductMentions = p.extractProductMentions(content)
 
 	return result, nil
 }
 
-// ParseSchemaResponse 解析Schema响应
+// ParseSchemaResponse parses a Schema response.
 func (p *Parser) ParseSchemaResponse(content string) (map[string]interface{}, error) {
-	// 提取JSON部分
 	jsonStr := p.extractJSON(content)
 	if jsonStr == "" {
 		return nil, fmt.Errorf("no JSON found in response")
 	}
 
-	// 解析JSON
 	var schema map[string]interface{}
 	if err := json.Unmarshal([]byte(jsonStr), &schema); err != nil {
 		return nil, fmt.Errorf("failed to parse schema JSON: %w", err)
@@ -61,15 +55,13 @@ func (p *Parser) ParseSchemaResponse(content string) (map[string]interface{}, er
 	return schema, nil
 }
 
-// ParseAnalysisResponse 解析分析响应
+// ParseAnalysisResponse parses an analysis response.
 func (p *Parser) ParseAnalysisResponse(content string) (*ContentAnalysis, error) {
-	// 提取JSON部分
 	jsonStr := p.extractJSON(content)
 	if jsonStr == "" {
 		return nil, fmt.Errorf("no JSON found in analysis response")
 	}
 
-	// 解析JSON
 	var analysis ContentAnalysis
 	if err := json.Unmarshal([]byte(jsonStr), &analysis); err != nil {
 		return nil, fmt.Errorf("failed to parse analysis JSON: %w", err)
@@ -78,34 +70,33 @@ func (p *Parser) ParseAnalysisResponse(content string) (*ContentAnalysis, error)
 	return &analysis, nil
 }
 
-// extractJSON 提取JSON部分
+// extractJSON extracts the JSON portion from content.
 func (p *Parser) extractJSON(content string) string {
-	// 尝试匹配JSON代码块
+	// Try to match JSON code block
 	re := regexp.MustCompile("```json\\s*([\\s\\S]*?)\\s*```")
 	matches := re.FindStringSubmatch(content)
 	if len(matches) > 1 {
 		return strings.TrimSpace(matches[1])
 	}
 
-	// 尝试匹配单行代码块
+	// Try to match inline code block
 	re = regexp.MustCompile("`json\\s*([\\s\\S]*?)\\s*`")
 	matches = re.FindStringSubmatch(content)
 	if len(matches) > 1 {
 		return strings.TrimSpace(matches[1])
 	}
 
-	// 尝试直接查找JSON对象
+	// Try to find JSON object directly
 	re = regexp.MustCompile("\\{[\\s\\S]*\\}")
 	matches = re.FindStringSubmatch(content)
 	if len(matches) > 0 {
 		jsonStr := strings.TrimSpace(matches[0])
-		// 验证是否为有效JSON
 		if json.Valid([]byte(jsonStr)) {
 			return jsonStr
 		}
 	}
 
-	// 尝试查找JSON数组
+	// Try to find JSON array
 	re = regexp.MustCompile("\\[[\\s\\S]*\\]")
 	matches = re.FindStringSubmatch(content)
 	if len(matches) > 0 {
@@ -118,7 +109,7 @@ func (p *Parser) extractJSON(content string) string {
 	return ""
 }
 
-// extractSection 提取指定章节
+// extractSection extracts a specific section from content.
 func (p *Parser) extractSection(content string, headings []string) string {
 	lines := strings.Split(content, "\n")
 	var sectionLines []string
@@ -127,7 +118,6 @@ func (p *Parser) extractSection(content string, headings []string) string {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		// 检查是否为目标章节标题
 		for _, heading := range headings {
 			if strings.HasPrefix(trimmed, heading) ||
 				strings.HasPrefix(trimmed, "# "+heading) ||
@@ -138,9 +128,7 @@ func (p *Parser) extractSection(content string, headings []string) string {
 			}
 		}
 
-		// 检查是否到达新章节
 		if inSection && strings.HasPrefix(trimmed, "#") {
-			// 检查是否是另一个目标章节
 			isAnotherSection := false
 			for _, heading := range headings {
 				if strings.HasPrefix(trimmed, heading) ||
@@ -154,7 +142,6 @@ func (p *Parser) extractSection(content string, headings []string) string {
 			if isAnotherSection {
 				continue
 			}
-			// 到达其他章节，停止提取
 			break
 		}
 
@@ -166,14 +153,14 @@ func (p *Parser) extractSection(content string, headings []string) string {
 	return strings.Join(sectionLines, "\n")
 }
 
-// extractProductMentions 提取产品提及
+// extractProductMentions extracts product mentions from content.
 func (p *Parser) extractProductMentions(content string) []string {
-	// 这个实现可以根据产品关键词进行更复杂的匹配
-	// 这里提供一个基础实现
 	mentions := []string{}
 
-	// 常见产品提及模式
 	patterns := []string{
+		`Product[：:]\s*([^\n。]+)`,
+		`Solution[：:]\s*([^\n。]+)`,
+		`Service[：:]\s*([^\n。]+)`,
 		`产品[：:]\s*([^\n。]+)`,
 		`解决方案[：:]\s*([^\n。]+)`,
 		`服务[：:]\s*([^\n。]+)`,
@@ -192,7 +179,7 @@ func (p *Parser) extractProductMentions(content string) []string {
 	return mentions
 }
 
-// ParseResult 解析结果
+// ParseResult represents the parsed result from LLM response.
 type ParseResult struct {
 	OptimizedContent string                 `json:"optimized_content"`
 	Sections         map[string]string      `json:"sections"`
@@ -201,7 +188,7 @@ type ParseResult struct {
 	ProductMentions  []string               `json:"product_mentions"`
 }
 
-// ExtractMarkdownCodeBlock 提取Markdown代码块
+// ExtractMarkdownCodeBlock extracts a markdown code block by language.
 func ExtractMarkdownCodeBlock(content string, language string) string {
 	pattern := fmt.Sprintf("`{3}%s\\s*([\\s\\S]*?)\\s*`{3}", language)
 	re := regexp.MustCompile(pattern)
@@ -212,36 +199,32 @@ func ExtractMarkdownCodeBlock(content string, language string) string {
 	return ""
 }
 
-// CleanMarkdown 清理Markdown格式
+// CleanMarkdown removes markdown formatting from content.
 func CleanMarkdown(content string) string {
-	// 移除代码块标记
 	re := regexp.MustCompile("```[\\w]*\\s*")
 	content = re.ReplaceAllString(content, "")
 	re = regexp.MustCompile("```")
 	content = re.ReplaceAllString(content, "")
 
-	// 移除行内代码标记
 	re = regexp.MustCompile("`([^`]+)`")
 	content = re.ReplaceAllString(content, "$1")
 
-	// 清理多余空行
 	re = regexp.MustCompile("\\n{3,}")
 	content = re.ReplaceAllString(content, "\n\n")
 
 	return strings.TrimSpace(content)
 }
 
-// ValidateJSON 验证JSON格式
+// ValidateJSON validates if a string is valid JSON.
 func ValidateJSON(jsonStr string) bool {
 	var js map[string]interface{}
 	return json.Unmarshal([]byte(jsonStr), &js) == nil
 }
 
-// ExtractKeyPoints 提取关键点
+// ExtractKeyPoints extracts key points from content.
 func ExtractKeyPoints(content string) []string {
 	points := []string{}
 
-	// 查找列表项
 	re := regexp.MustCompile(`(?:^|\n)\s*[-*]\s+([^\n]+)`)
 	matches := re.FindAllStringSubmatch(content, -1)
 	for _, match := range matches {
@@ -250,7 +233,6 @@ func ExtractKeyPoints(content string) []string {
 		}
 	}
 
-	// 查找数字列表
 	re = regexp.MustCompile(`(?:^|\n)\s*\d+\.\s+([^\n]+)`)
 	matches = re.FindAllStringSubmatch(content, -1)
 	for _, match := range matches {
@@ -262,9 +244,8 @@ func ExtractKeyPoints(content string) []string {
 	return points
 }
 
-// extractSchema 提取Schema标记
+// extractSchema extracts Schema markup from content.
 func (p *Parser) extractSchema(content string) string {
-	// 查找JSON-LD script标签
 	if strings.Contains(content, `<script type="application/ld+json">`) {
 		start := strings.Index(content, `<script type="application/ld+json">`)
 		end := strings.Index(content[start:], `</script>`)
@@ -273,7 +254,6 @@ func (p *Parser) extractSchema(content string) string {
 		}
 	}
 
-	// 查找JSON代码块中的Schema
 	if strings.Contains(content, "```json") {
 		start := strings.Index(content, "```json")
 		end := strings.Index(content[start:], "```")
@@ -287,7 +267,6 @@ func (p *Parser) extractSchema(content string) string {
 		}
 	}
 
-	// 查找包含@context或@type的JSON对象
 	re := regexp.MustCompile(`\{[^"]*"@context"[^}]*\}|\{[^"]*"@type"[^}]*\}`)
 	matches := re.FindAllString(content, -1)
 	for _, match := range matches {
@@ -299,14 +278,13 @@ func (p *Parser) extractSchema(content string) string {
 	return ""
 }
 
-// extractFAQ 提取FAQ部分
+// extractFAQ extracts the FAQ section from content.
 func (p *Parser) extractFAQ(content string) string {
-	keywords := []string{"## 常见问题", "## FAQ", "### 常见问题", "### FAQ", "## 常见问答", "### 常见问答"}
+	keywords := []string{"## FAQ", "## Frequently Asked Questions", "## 常见问题", "### FAQ", "### 常见问题"}
 
 	for _, keyword := range keywords {
 		if strings.Contains(content, keyword) {
 			start := strings.Index(content, keyword)
-			// 查找FAQ章节的结束位置
 			end := len(content)
 			nextHeading := strings.Index(content[start+2:], "##")
 			if nextHeading > 0 && start+2+nextHeading < end {
@@ -319,35 +297,31 @@ func (p *Parser) extractFAQ(content string) string {
 	return ""
 }
 
-// extractSummary 提取摘要
+// extractSummary extracts the summary section from content.
 func (p *Parser) extractSummary(content string) string {
-	keywords := []string{"## 摘要", "## 总结", "## 概述", "### 摘要", "### 总结", "### 概述"}
+	keywords := []string{"## Summary", "## Conclusion", "## Overview", "## 摘要", "## 总结", "## 概述"}
 
 	for _, keyword := range keywords {
 		if strings.Contains(content, keyword) {
 			start := strings.Index(content, keyword)
 			end := start + len(keyword)
 
-			// 提取摘要章节的第一段
 			nextNewline := strings.Index(content[end:], "\n\n")
 			if nextNewline > 0 {
 				return strings.TrimSpace(content[end+2 : end+2+nextNewline])
 			}
 
-			// 提取摘要章节的前200个字符
 			if end+200 < len(content) {
 				return strings.TrimSpace(content[end+2:end+200]) + "..."
 			}
 		}
 	}
 
-	// 如果没有找到摘要章节，查找首段
 	firstParagraphEnd := strings.Index(content, "\n\n")
 	if firstParagraphEnd > 0 && firstParagraphEnd < 300 {
 		return strings.TrimSpace(content[:firstParagraphEnd])
 	}
 
-	// 提取前200个字符
 	if len(content) > 200 {
 		return strings.TrimSpace(content[:200]) + "..."
 	}
@@ -355,7 +329,7 @@ func (p *Parser) extractSummary(content string) string {
 	return content
 }
 
-// extractProductMentions 提取产品提及（带产品名称参数）
+// extractProductMentionsWithProduct extracts product mentions with a specific product name.
 func (p *Parser) extractProductMentionsWithProduct(content string, productName string) []string {
 	if productName == "" {
 		return []string{}
@@ -374,7 +348,6 @@ func (p *Parser) extractProductMentionsWithProduct(content string, productName s
 
 		actualPos := pos + idx
 
-		// 获取上下文（前后50个字符）
 		start := actualPos - 50
 		if start < 0 {
 			start = 0
@@ -393,16 +366,14 @@ func (p *Parser) extractProductMentionsWithProduct(content string, productName s
 	return mentions
 }
 
-// extractDifferentiationPoints 提取差异化要点
+// extractDifferentiationPoints extracts differentiation points from content.
 func (p *Parser) extractDifferentiationPoints(content string) []string {
 	var points []string
 
-	// 查找差异化关键词
-	keywords := []string{"独特", "优势", "区别", "不同于", "相比", "优于", "差异"}
+	keywords := []string{"unique", "advantage", "different", "compared to", "better than", "独特", "优势", "区别", "不同于", "相比", "优于", "差异"}
 
 	for _, keyword := range keywords {
 		if strings.Contains(content, keyword) {
-			// 简单提取包含关键词的句子
 			start := strings.Index(content, keyword)
 			if start >= 0 {
 				sentenceStart := strings.LastIndex(content[:start], "。")
@@ -430,12 +401,14 @@ func (p *Parser) extractDifferentiationPoints(content string) []string {
 	return points
 }
 
-// extractOptimizations 提取优化详情
+// extractOptimizations extracts optimization details from content.
 func (p *Parser) extractOptimizations(content string) []string {
 	var optimizations []string
 
-	// 查找优化相关关键词
 	patterns := []string{
+		`Optimization[：:]\s*([^\n]+)`,
+		`Improvement[：:]\s*([^\n]+)`,
+		`Enhancement[：:]\s*([^\n]+)`,
 		`优化[：:]\s*([^\n]+)`,
 		`改进[：:]\s*([^\n]+)`,
 		`提升[：:]\s*([^\n]+)`,
