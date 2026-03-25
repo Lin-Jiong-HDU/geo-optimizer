@@ -30,7 +30,7 @@ type ScoreResult struct {
     ScoreType    string  // "rules" or "ai"
     Degraded     bool    // whether degraded to rule scoring
     ErrorMessage string  // degradation reason
-    TokensUsed   int     // NEW: tokens consumed (0 for rule-based scoring)
+    TokensUsed   int     // NEW: tokens consumed by LLM (0 when no LLM usage was recorded)
 }
 ```
 
