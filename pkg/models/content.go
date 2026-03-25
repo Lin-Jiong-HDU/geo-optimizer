@@ -56,3 +56,21 @@ type ScoreResult struct {
 	ErrorMessage string `json:"error_message"` // 降级时的错误信息（可选）
 	TokensUsed   int    `json:"tokens_used"`   // AI评分消耗的token数（仅在未调用LLM时为0，降级为规则评分时可能大于0）
 }
+
+// Suggestion 单条改进建议
+type Suggestion struct {
+	Issue         string  `json:"issue"`          // 问题描述
+	Direction     string  `json:"direction"`      // 改进方向
+	Priority      string  `json:"priority"`       // 优先级: high/medium/low
+	EstimatedGain float64 `json:"estimated_gain"` // 预估提升分数 (0-20)
+	Example       string  `json:"example"`        // 示例片段（可选）
+}
+
+// ScoreResultWithSuggestions 带建议的评分结果
+type ScoreResultWithSuggestions struct {
+	*ScoreResult
+	// 维度级建议 (key: structure/authority/clarity/citation/schema)
+	DimensionSuggestions map[string][]Suggestion `json:"dimension_suggestions"`
+	// 整体优先建议（按优先级和预估提升排序）
+	TopSuggestions []Suggestion `json:"top_suggestions"`
+}
