@@ -239,11 +239,6 @@ func (s *Scorer) parseAIResponseWithSuggestions(content string) (*models.ScoreRe
 		topSuggestions = topSuggestions[:5]
 	}
 
-	// 确保非 nil（与降级路径一致）
-	if topSuggestions == nil {
-		topSuggestions = []models.Suggestion{}
-	}
-
 	return &models.ScoreResultWithSuggestions{
 		ScoreResult: &models.ScoreResult{
 			GeoScore:  geoScore,
