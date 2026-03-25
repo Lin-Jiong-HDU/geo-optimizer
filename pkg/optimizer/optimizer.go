@@ -116,27 +116,33 @@ func (o *Optimizer) OptimizeWithStrategy(ctx context.Context, req *models.Optimi
 	}
 
 	// 6. 执行策略
-	optimizedContent, _, err := o.executeStrategy(ctx, reqCopy, strategy)
+	strategyResult, chatResp, err := o.executeStrategy(ctx, reqCopy, strategy)
 	if err != nil {
 		return nil, fmt.Errorf("strategy execution failed: %w", err)
 	}
 
-	// 7. 内容评分（优化后）
+	// 7. 根据策略类型确定最终内容和 schema/faq
+	var optimizedContent, schemaMarkup, faqSection string
+	switch strategyType {
+	case models.StrategySchema:
+		schemaMarkup = strategyResult
+		optimizedContent = reqCopy.Content // Schema策略不修改主体内容
+	case models.StrategyFAQ:
+		faqSection = strategyResult
+		optimizedContent = reqCopy.Content // FAQ策略不修改主体内容
+	default:
+		optimizedContent = strategyResult
+	}
+
+	// 8. 内容评分（优化后）- 在确定最终内容后评分
 	scoreAfter, err := o.scorer.Score(ctx, optimizedContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to score content after optimization: %w", err)
 	}
 
-	// 8. 构建响应
-	response := &models.OptimizationResponse{
-		OptimizedContent:  optimizedContent,
-		Title:             reqCopy.Title,
-		AppliedStrategies: []models.StrategyType{strategyType},
-		ScoreBefore:       scoreBefore.OverallScore(),
-		ScoreAfter:        scoreAfter.OverallScore(),
-		GeneratedAt:       time.Now(),
-		Version:           "1.0.0",
-	}
+	// 9. 构建响应（使用 buildResponse 保持与 Optimize 一致）
+	response := o.buildResponse(reqCopy, optimizedContent, schemaMarkup, faqSection, chatResp.TokensUsed, chatResp.Model, scoreBefore, scoreAfter)
+	response.AppliedStrategies = []models.StrategyType{strategyType} // 覆盖为单策略
 
 	return response, nil
 }
