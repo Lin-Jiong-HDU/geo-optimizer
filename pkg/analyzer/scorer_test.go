@@ -589,3 +589,118 @@ func TestScorer_CompareWithAI(t *testing.T) {
 		comparison.After.OverallScore(),
 		comparison.TotalChange)
 }
+
+func TestScorer_ScoreWithSuggestions(t *testing.T) {
+	// 模拟LLM返回的评分和建议JSON
+	mockResp := `{
+		"scores": {
+			"structure": 65,
+			"structure_reason": "结构不够清晰",
+			"authority": 70,
+			"authority_reason": "有部分数据支撑",
+			"clarity": 80,
+			"clarity_reason": "表达较清晰",
+			"citation": 55,
+			"citation_reason": "缺少可引用结论",
+			"schema": 40,
+			"schema_reason": "无结构化标记"
+		},
+		"dimension_suggestions": {
+			"structure": [
+				{"issue": "缺少二级标题", "direction": "添加更多章节划分", "priority": "high", "estimated_gain": 15, "example": "## 核心概念"}
+			],
+			"citation": [
+				{"issue": "无明确结论", "direction": "在开头添加结论摘要", "priority": "high", "estimated_gain": 20, "example": "结论：..."}
+			],
+			"schema": [
+				{"issue": "无JSON-LD标记", "direction": "添加Schema.org结构化数据", "priority": "medium", "estimated_gain": 10, "example": ""}
+			]
+		},
+		"top_suggestions": [
+			{"issue": "缺少可引用结论", "direction": "在开头添加结论摘要", "priority": "high", "estimated_gain": 20, "example": "结论：..."},
+			{"issue": "缺少二级标题", "direction": "添加更多章节划分", "priority": "high", "estimated_gain": 15, "example": "## 核心概念"}
+		]
+	}`
+
+	scorer := NewScorer(&mockLLMClientForScoring{response: mockResp})
+	content := "# 测试内容\n\n一些测试内容。"
+
+	result, err := scorer.ScoreWithSuggestions(context.Background(), content)
+	if err != nil {
+		t.Fatalf("ScoreWithSuggestions should not return error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("ScoreWithSuggestions should return non-nil result")
+	}
+
+	// 验证评分类型
+	if result.ScoreType != "ai" {
+		t.Errorf("Expected ScoreType 'ai', got: %s", result.ScoreType)
+	}
+
+	// 验证未降级
+	if result.Degraded {
+		t.Error("Expected Degraded to be false")
+	}
+
+	// 验证有维度建议
+	if len(result.DimensionSuggestions) == 0 {
+		t.Error("Expected dimension suggestions")
+	}
+
+	// 验证有Top建议
+	if len(result.TopSuggestions) == 0 {
+		t.Error("Expected top suggestions")
+	}
+
+	// 验证Top建议按estimated_gain排序
+	if len(result.TopSuggestions) >= 2 {
+		if result.TopSuggestions[0].EstimatedGain < result.TopSuggestions[1].EstimatedGain {
+			t.Error("Top suggestions should be sorted by estimated_gain descending")
+		}
+	}
+
+	t.Logf("ScoreType: %s, Degraded: %v", result.ScoreType, result.Degraded)
+	t.Logf("Dimensions with suggestions: %d", len(result.DimensionSuggestions))
+	t.Logf("Top suggestions: %d", len(result.TopSuggestions))
+	for i, s := range result.TopSuggestions {
+		t.Logf("  %d. [%s] %s (gain: %.0f)", i+1, s.Priority, s.Issue, s.EstimatedGain)
+	}
+}
+
+func TestScorer_ScoreWithSuggestions_Degraded(t *testing.T) {
+	// 模拟LLM调用失败
+	scorer := NewScorer(&mockLLMClientForScoring{err: fmt.Errorf("timeout")})
+	content := "# 测试内容\n\n测试内容。"
+
+	result, err := scorer.ScoreWithSuggestions(context.Background(), content)
+	if err != nil {
+		t.Fatalf("ScoreWithSuggestions should not return error even on LLM failure: %v", err)
+	}
+
+	// 验证已降级
+	if !result.Degraded {
+		t.Error("Expected Degraded to be true")
+	}
+
+	if result.ScoreType != "rules" {
+		t.Errorf("Expected ScoreType 'rules', got: %s", result.ScoreType)
+	}
+
+	if result.ErrorMessage == "" {
+		t.Error("Expected ErrorMessage to be set")
+	}
+
+	// 验证无建议
+	if len(result.DimensionSuggestions) != 0 {
+		t.Error("Expected no dimension suggestions on degraded")
+	}
+
+	if len(result.TopSuggestions) != 0 {
+		t.Error("Expected no top suggestions on degraded")
+	}
+
+	t.Logf("Degraded: %v, ScoreType: %s, ErrorMessage: %s",
+		result.Degraded, result.ScoreType, result.ErrorMessage)
+}
