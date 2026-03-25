@@ -1,76 +1,65 @@
 package models
 
-// ContentAnalysis 内容分析结果
+// ContentAnalysis represents content analysis results.
 type ContentAnalysis struct {
-	// 内容质量评分
 	QualityScore float64 `json:"quality_score"`
 
-	// 结构分析
 	StructureScore float64 `json:"structure_score"`
 	HeadingCount   int     `json:"heading_count"`
 	ParagraphCount int     `json:"paragraph_count"`
 
-	// 权威性分析
 	AuthorityScore float64 `json:"authority_score"`
 	CitationCount  int     `json:"citation_count"`
 	SourceCount    int     `json:"source_count"`
 
-	// 清晰度分析
 	ClarityScore float64 `json:"clarity_score"`
 	Readability  string  `json:"readability"`
 
-	// 可引用性分析
 	CitationScore float64 `json:"citation_score"`
 
-	// Schema完整性
 	SchemaScore float64 `json:"schema_score"`
 
-	// 总体GEO评分
 	GeoScore float64 `json:"geo_score"`
 
-	// 建议
 	Suggestions []string `json:"suggestions"`
 }
 
-// GeoScore GEO评分明细
+// GeoScore represents GEO scoring details across five dimensions.
 type GeoScore struct {
-	Structure float64 `json:"structure"` // 结构化程度 (0-100)
-	Authority float64 `json:"authority"` // 权威性 (0-100)
-	Clarity   float64 `json:"clarity"`   // 清晰度 (0-100)
-	Citation  float64 `json:"citation"`  // 可引用性 (0-100)
-	Schema    float64 `json:"schema"`    // Schema完整性 (0-100)
+	Structure float64 `json:"structure"`
+	Authority float64 `json:"authority"`
+	Clarity   float64 `json:"clarity"`
+	Citation  float64 `json:"citation"`
+	Schema    float64 `json:"schema"`
 }
 
-// OverallScore 计算总体评分
+// OverallScore calculates the overall GEO score.
 func (g *GeoScore) OverallScore() float64 {
 	return (g.Structure + g.Authority + g.Clarity + g.Citation + g.Schema) / 5.0
 }
 
-// ScoreResult 评分结果（支持AI评分和规则评分）
+// ScoreResult represents a scoring result supporting both AI and rule-based scoring.
 type ScoreResult struct {
-	*GeoScore // 复用现有5维度评分
+	*GeoScore
 
-	// 元信息
-	ScoreType    string `json:"score_type"`    // "ai" 或 "rules"
-	Degraded     bool   `json:"degraded"`      // 是否从AI降级到规则
-	ErrorMessage string `json:"error_message"` // 降级时的错误信息（可选）
-	TokensUsed   int    `json:"tokens_used"`   // AI评分消耗的token数（仅在未调用LLM时为0，降级为规则评分时可能大于0）
+	ScoreType    string `json:"score_type"`
+	Degraded     bool   `json:"degraded"`
+	ErrorMessage string `json:"error_message"`
+	TokensUsed   int    `json:"tokens_used"`
 }
 
-// Suggestion 单条改进建议
+// Suggestion represents a single improvement suggestion.
 type Suggestion struct {
-	Issue         string  `json:"issue"`          // 问题描述
-	Direction     string  `json:"direction"`      // 改进方向
-	Priority      string  `json:"priority"`       // 优先级: high/medium/low
-	EstimatedGain float64 `json:"estimated_gain"` // 预估提升分数 (0-20)
-	Example       string  `json:"example"`        // 示例片段（可选）
+	Issue         string  `json:"issue"`
+	Direction     string  `json:"direction"`
+	Priority      string  `json:"priority"`
+	EstimatedGain float64 `json:"estimated_gain"`
+	Example       string  `json:"example"`
 }
 
-// ScoreResultWithSuggestions 带建议的评分结果
+// ScoreResultWithSuggestions represents a scoring result with improvement suggestions.
 type ScoreResultWithSuggestions struct {
 	*ScoreResult
-	// 维度级建议 (key: structure/authority/clarity/citation/schema)
 	DimensionSuggestions map[string][]Suggestion `json:"dimension_suggestions"`
-	// 整体优先建议（按优先级和预估提升排序）
-	TopSuggestions []Suggestion `json:"top_suggestions"`
+	TopSuggestions       []Suggestion            `json:"top_suggestions"`
 }

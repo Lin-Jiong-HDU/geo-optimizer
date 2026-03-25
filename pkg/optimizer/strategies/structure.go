@@ -8,39 +8,34 @@ import (
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
 
-// StructureStrategy 结构化优化策略
-// 优化内容的结构，使其更符合AI搜索引擎的偏好
+// StructureStrategy optimizes content structure for AI search engine preferences.
 type StructureStrategy struct {
 	*BaseStrategy
 }
 
-// NewStructureStrategy 创建结构化策略
+// NewStructureStrategy creates a new structure strategy.
 func NewStructureStrategy() *StructureStrategy {
 	return &StructureStrategy{
 		BaseStrategy: NewBaseStrategy(models.StrategyStructure, "structure"),
 	}
 }
 
-// Validate 验证策略是否适用
+// Validate checks if the strategy is applicable.
 func (s *StructureStrategy) Validate(req *models.OptimizationRequest) bool {
-	// 结构化策略总是适用
 	return req.Content != ""
 }
 
-// Preprocess 预处理内容
+// Preprocess preprocesses content before optimization.
 func (s *StructureStrategy) Preprocess(content string, req *models.OptimizationRequest) string {
-	// 检查内容是否已经有良好的结构
 	if s.hasGoodStructure(content) {
 		return content
 	}
 
-	// 如果结构不好，添加基础结构标记
 	return fmt.Sprintf("# %s\n\n%s", req.Title, content)
 }
 
-// Postprocess 后处理内容
+// Postprocess postprocesses content after optimization.
 func (s *StructureStrategy) Postprocess(content string, req *models.OptimizationRequest) string {
-	// 清理多余的空行
 	lines := strings.Split(content, "\n")
 	var cleaned []string
 	emptyCount := 0
@@ -61,19 +56,19 @@ func (s *StructureStrategy) Postprocess(content string, req *models.Optimization
 	return strings.Join(cleaned, "\n")
 }
 
-// BuildPrompt 构建结构化优化提示词
+// BuildPrompt builds the structure optimization prompt.
 func (s *StructureStrategy) BuildPrompt(req *models.OptimizationRequest) string {
 	builder := prompts.NewBuilder()
 	return builder.BuildStrategyPrompt(models.StrategyStructure, req)
 }
 
-// BuildPromptWithContent 使用指定内容构建 Prompt
+// BuildPromptWithContent builds the prompt with specified content.
 func (s *StructureStrategy) BuildPromptWithContent(content string, req *models.OptimizationRequest) string {
 	builder := prompts.NewBuilder()
 	return builder.BuildStrategyPromptWithContent(models.StrategyStructure, content, req)
 }
 
-// hasGoodStructure 检查内容是否已有良好的结构
+// hasGoodStructure checks if content already has good structure.
 func (s *StructureStrategy) hasGoodStructure(content string) bool {
 	hasHeading := strings.Contains(content, "# ") || strings.Contains(content, "## ")
 	hasList := strings.Contains(content, "- ") || strings.Contains(content, "* ") ||
@@ -82,11 +77,10 @@ func (s *StructureStrategy) hasGoodStructure(content string) bool {
 	return hasHeading && (hasList || hasParagraph)
 }
 
-// GetStructureScore 获取结构化评分
+// GetStructureScore returns the structure score of the content.
 func (s *StructureStrategy) GetStructureScore(content string) float64 {
 	score := 0.0
 
-	// 1. 检查标题层级 (0-30分)
 	headings := strings.Count(content, "#")
 	if headings > 0 {
 		score += 15.0
@@ -98,7 +92,6 @@ func (s *StructureStrategy) GetStructureScore(content string) float64 {
 		}
 	}
 
-	// 2. 检查列表使用 (0-20分)
 	if strings.Contains(content, "- ") || strings.Contains(content, "* ") {
 		score += 10.0
 	}
@@ -106,7 +99,6 @@ func (s *StructureStrategy) GetStructureScore(content string) float64 {
 		score += 10.0
 	}
 
-	// 3. 检查段落结构 (0-25分)
 	paragraphs := strings.Split(content, "\n\n")
 	if len(paragraphs) > 1 {
 		score += 15.0
@@ -115,7 +107,6 @@ func (s *StructureStrategy) GetStructureScore(content string) float64 {
 		score += 10.0
 	}
 
-	// 4. 检查章节划分 (0-25分)
 	sections := strings.Count(content, "##")
 	if sections >= 2 {
 		score += 15.0

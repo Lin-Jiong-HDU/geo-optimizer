@@ -12,12 +12,11 @@ import (
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
 
-// priorityOrder 优先级排序权重
+// priorityOrder defines the priority weights for sorting suggestions.
 var priorityOrder = map[string]int{"high": 3, "medium": 2, "low": 1}
 
-// ScoreWithAI 使用LLM进行AI评分
+// ScoreWithAI performs AI-based scoring using LLM.
 func (s *Scorer) ScoreWithAI(ctx context.Context, content string) (*models.ScoreResult, error) {
-	// 构建评分请求
 	req := &llm.ChatRequest{
 		Messages: []llm.Message{
 			{
@@ -29,21 +28,17 @@ func (s *Scorer) ScoreWithAI(ctx context.Context, content string) (*models.Score
 				Content: prompts.BuildScorePrompt(content),
 			},
 		},
-		Temperature: 0.3, // 评分需要较低的温度以保证一致性
+		Temperature: 0.3,
 	}
 
-	// 调用LLM
 	resp, err := s.llmClient.Chat(ctx, req)
 	if err != nil {
-		// 降级到规则评分（LLM调用失败，无token消耗）
-		return s.degradeToRuleScore(content, fmt.Sprintf("LLM调用失败: %v", err), 0), nil
+		return s.degradeToRuleScore(content, fmt.Sprintf("LLM call failed: %v", err), 0), nil
 	}
 
-	// 解析响应
 	score, err := s.parseAIResponse(resp.Content)
 	if err != nil {
-		// 降级到规则评分（LLM调用成功但解析失败，保留token计数）
-		return s.degradeToRuleScore(content, fmt.Sprintf("解析LLM响应失败: %v", err), resp.TokensUsed), nil
+		return s.degradeToRuleScore(content, fmt.Sprintf("Failed to parse LLM response: %v", err), resp.TokensUsed), nil
 	}
 
 	return &models.ScoreResult{
@@ -54,21 +49,18 @@ func (s *Scorer) ScoreWithAI(ctx context.Context, content string) (*models.Score
 	}, nil
 }
 
-// CompareWithAI 使用AI评分对比优化前后内容
+// CompareWithAI compares scores before and after optimization using AI scoring.
 func (s *Scorer) CompareWithAI(ctx context.Context, before, after string) (*ScoreComparisonResult, error) {
-	// 评分前
 	scoreBefore, err := s.ScoreWithAI(ctx, before)
 	if err != nil {
 		return nil, fmt.Errorf("failed to score before content: %w", err)
 	}
 
-	// 评分后
 	scoreAfter, err := s.ScoreWithAI(ctx, after)
 	if err != nil {
 		return nil, fmt.Errorf("failed to score after content: %w", err)
 	}
 
-	// 计算提升幅度
 	improvements := map[string]float64{
 		"structure": scoreAfter.Structure - scoreBefore.Structure,
 		"authority": scoreAfter.Authority - scoreBefore.Authority,
@@ -88,9 +80,8 @@ func (s *Scorer) CompareWithAI(ctx context.Context, before, after string) (*Scor
 	}, nil
 }
 
-// parseAIResponse 解析AI评分响应
+// parseAIResponse parses the AI scoring response.
 func (s *Scorer) parseAIResponse(content string) (*models.GeoScore, error) {
-	// 清理可能的markdown代码块标记
 	content = strings.TrimSpace(content)
 	content = strings.TrimPrefix(content, "```json")
 	content = strings.TrimPrefix(content, "```")
@@ -102,7 +93,6 @@ func (s *Scorer) parseAIResponse(content string) (*models.GeoScore, error) {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
-	// 验证分数范围
 	score := &models.GeoScore{
 		Structure: clampScore(resp.Structure),
 		Authority: clampScore(resp.Authority),
@@ -114,7 +104,7 @@ func (s *Scorer) parseAIResponse(content string) (*models.GeoScore, error) {
 	return score, nil
 }
 
-// degradeToRuleScore 降级到规则评分
+// degradeToRuleScore falls back to rule-based scoring when AI scoring fails.
 func (s *Scorer) degradeToRuleScore(content string, errMsg string, tokensUsed int) *models.ScoreResult {
 	score := s.scoreByRules(content)
 	return &models.ScoreResult{
@@ -126,7 +116,7 @@ func (s *Scorer) degradeToRuleScore(content string, errMsg string, tokensUsed in
 	}
 }
 
-// clampScore 确保分数在0-100范围内
+// clampScore ensures the score is within 0-100 range.
 func clampScore(score float64) float64 {
 	if score < 0 {
 		return 0
@@ -137,18 +127,17 @@ func clampScore(score float64) float64 {
 	return score
 }
 
-// ScoreComparisonResult AI评分对比结果
+// ScoreComparisonResult represents the result of AI score comparison.
 type ScoreComparisonResult struct {
 	Before       *models.ScoreResult `json:"before"`
 	After        *models.ScoreResult `json:"after"`
 	Improvements map[string]float64  `json:"improvements"`
 	TotalChange  float64             `json:"total_change"`
-	TokensUsed   int                 `json:"tokens_used"` // 两次评分总token数
+	TokensUsed   int                 `json:"tokens_used"`
 }
 
-// ScoreWithSuggestions 评分并返回改进建议（一次LLM调用）
+// ScoreWithSuggestions performs scoring and returns improvement suggestions in a single LLM call.
 func (s *Scorer) ScoreWithSuggestions(ctx context.Context, content string) (*models.ScoreResultWithSuggestions, error) {
-	// 构建评分请求
 	req := &llm.ChatRequest{
 		Messages: []llm.Message{
 			{
@@ -163,26 +152,21 @@ func (s *Scorer) ScoreWithSuggestions(ctx context.Context, content string) (*mod
 		Temperature: 0.3,
 	}
 
-	// 调用LLM
 	resp, err := s.llmClient.Chat(ctx, req)
 	if err != nil {
-		// 降级：只返回规则评分，无建议
-		return s.degradeToRuleScoreWithSuggestions(content, fmt.Sprintf("LLM调用失败: %v", err)), nil
+		return s.degradeToRuleScoreWithSuggestions(content, fmt.Sprintf("LLM call failed: %v", err)), nil
 	}
 
-	// 解析响应
 	result, err := s.parseAIResponseWithSuggestions(resp.Content)
 	if err != nil {
-		// 降级：只返回规则评分，无建议
-		return s.degradeToRuleScoreWithSuggestions(content, fmt.Sprintf("解析LLM响应失败: %v", err)), nil
+		return s.degradeToRuleScoreWithSuggestions(content, fmt.Sprintf("Failed to parse LLM response: %v", err)), nil
 	}
 
 	return result, nil
 }
 
-// parseAIResponseWithSuggestions 解析带建议的AI评分响应
+// parseAIResponseWithSuggestions parses the AI response with suggestions.
 func (s *Scorer) parseAIResponseWithSuggestions(content string) (*models.ScoreResultWithSuggestions, error) {
-	// 从LLM响应中提取有效的 JSON 子串，避免因为说明文字/多段代码块导致解析失败
 	jsonContent, err := extractJSONFromText(content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract JSON from LLM response: %w", err)
@@ -193,7 +177,6 @@ func (s *Scorer) parseAIResponseWithSuggestions(content string) (*models.ScoreRe
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
-	// 构建GeoScore
 	geoScore := &models.GeoScore{
 		Structure: clampScore(resp.Scores.Structure),
 		Authority: clampScore(resp.Scores.Authority),
@@ -202,7 +185,6 @@ func (s *Scorer) parseAIResponseWithSuggestions(content string) (*models.ScoreRe
 		Schema:    clampScore(resp.Scores.Schema),
 	}
 
-	// 转换建议
 	dimensionSuggestions := make(map[string][]models.Suggestion)
 	for dim, suggestions := range resp.DimensionSuggestions {
 		for _, sugg := range suggestions {
@@ -216,7 +198,6 @@ func (s *Scorer) parseAIResponseWithSuggestions(content string) (*models.ScoreRe
 		}
 	}
 
-	// 转换并排序 TopSuggestions
 	topSuggestions := make([]models.Suggestion, 0, len(resp.TopSuggestions))
 	for _, sugg := range resp.TopSuggestions {
 		topSuggestions = append(topSuggestions, models.Suggestion{
@@ -228,17 +209,15 @@ func (s *Scorer) parseAIResponseWithSuggestions(content string) (*models.ScoreRe
 		})
 	}
 
-	// 按 priority + estimated_gain 排序
 	sort.Slice(topSuggestions, func(i, j int) bool {
 		pi := priorityOrder[strings.ToLower(topSuggestions[i].Priority)]
 		pj := priorityOrder[strings.ToLower(topSuggestions[j].Priority)]
 		if pi != pj {
-			return pi > pj // high > medium > low
+			return pi > pj
 		}
 		return topSuggestions[i].EstimatedGain > topSuggestions[j].EstimatedGain
 	})
 
-	// 截断到最多5条
 	if len(topSuggestions) > 5 {
 		topSuggestions = topSuggestions[:5]
 	}
@@ -254,7 +233,7 @@ func (s *Scorer) parseAIResponseWithSuggestions(content string) (*models.ScoreRe
 	}, nil
 }
 
-// degradeToRuleScoreWithSuggestions 降级到规则评分（无建议）
+// degradeToRuleScoreWithSuggestions falls back to rule-based scoring without suggestions.
 func (s *Scorer) degradeToRuleScoreWithSuggestions(content string, errMsg string) *models.ScoreResultWithSuggestions {
 	score := s.scoreByRules(content)
 	return &models.ScoreResultWithSuggestions{
@@ -269,20 +248,18 @@ func (s *Scorer) degradeToRuleScoreWithSuggestions(content string, errMsg string
 	}
 }
 
-// extractJSONFromText 从包含说明文字/markdown代码块的文本中提取第一个有效的JSON子串
+// extractJSONFromText extracts the first valid JSON substring from text containing markdown code blocks.
 func extractJSONFromText(content string) (string, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return "", fmt.Errorf("empty LLM response")
 	}
 
-	// 查找第一个可能的JSON起始符号（对象）
 	start := strings.Index(content, "{")
 	if start == -1 {
 		return "", fmt.Errorf("no JSON object start found in LLM response")
 	}
 
-	// 使用括号匹配找到完整的JSON对象
 	depth := 0
 	end := -1
 	for i := start; i < len(content); i++ {

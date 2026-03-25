@@ -11,14 +11,12 @@ import (
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
 
-// Pre-compiled regex patterns for performance (P0 fix: avoid repeated compilation)
+// Pre-compiled regex patterns for performance.
 var (
-	// Structure scoring patterns
 	headingPattern     = regexp.MustCompile(`(?m)^#{1,6}\s+.+`)
 	sectionPattern     = regexp.MustCompile(`(?m)^#{2,}\s+.+`)
 	orderedListPattern = regexp.MustCompile(`(?m)^\d+\.\s`)
 
-	// Authority scoring patterns
 	dataPatterns = []*regexp.Regexp{
 		regexp.MustCompile(`\d+%\s`),
 		regexp.MustCompile(`\d+\s*(万|千|百)`),
@@ -45,10 +43,8 @@ var (
 		regexp.MustCompile(`(?i)case\s+study`),
 	}
 
-	// Clarity scoring patterns
 	sentenceSplitPattern = regexp.MustCompile(`[。！？.!?]`)
 
-	// Citation scoring patterns
 	conclusionPatterns = []*regexp.Regexp{
 		regexp.MustCompile(`结论[是为][:：].+`),
 		regexp.MustCompile(`总结[是为][:：].+`),
@@ -73,30 +69,28 @@ var (
 	}
 )
 
-// Scorer 内容评分器
+// Scorer performs GEO scoring on content.
 type Scorer struct {
 	llmClient llm.LLMClient
 }
 
-// NewScorer 创建评分器
+// NewScorer creates a new Scorer instance.
 func NewScorer(client llm.LLMClient) *Scorer {
 	return &Scorer{
 		llmClient: client,
 	}
 }
 
-// Score 对内容进行GEO评分（基于规则的快速评分）
+// Score performs rule-based GEO scoring on content.
 func (s *Scorer) Score(ctx context.Context, content string) (*models.GeoScore, error) {
 	return s.scoreByRules(content), nil
 }
 
-// ScoreWithAnalysis 对内容进行评分并返回详细分析（基于LLM）
-// Deprecated: The AnalyzeContent method has been moved. Use Score() instead for rule-based scoring.
+// ScoreWithAnalysis performs scoring with detailed analysis.
+// Deprecated: Use Score() instead for rule-based scoring.
 func (s *Scorer) ScoreWithAnalysis(ctx context.Context, content string) (*models.ContentAnalysis, error) {
-	// Use rule-based scoring instead
 	score := s.scoreByRules(content)
 
-	// Convert to ContentAnalysis
 	analysis := &models.ContentAnalysis{
 		StructureScore: score.Structure,
 		AuthorityScore: score.Authority,
@@ -104,27 +98,24 @@ func (s *Scorer) ScoreWithAnalysis(ctx context.Context, content string) (*models
 		CitationScore:  score.Citation,
 		SchemaScore:    score.Schema,
 		GeoScore:       score.OverallScore(),
-		Suggestions:    []string{}, // Can be enhanced later
+		Suggestions:    []string{},
 	}
 
 	return analysis, nil
 }
 
-// Compare 对比优化前后的评分
+// Compare compares scores before and after optimization.
 func (s *Scorer) Compare(ctx context.Context, before, after string) (*ScoreComparison, error) {
-	// 评分前
 	scoreBefore, err := s.Score(ctx, before)
 	if err != nil {
 		return nil, fmt.Errorf("failed to score before content: %w", err)
 	}
 
-	// 评分后
 	scoreAfter, err := s.Score(ctx, after)
 	if err != nil {
 		return nil, fmt.Errorf("failed to score after content: %w", err)
 	}
 
-	// 计算提升幅度
 	improvements := map[string]float64{
 		"structure": scoreAfter.Structure - scoreBefore.Structure,
 		"authority": scoreAfter.Authority - scoreBefore.Authority,
@@ -143,7 +134,7 @@ func (s *Scorer) Compare(ctx context.Context, before, after string) (*ScoreCompa
 	}, nil
 }
 
-// scoreByRules 基于规则的内容评分
+// scoreByRules performs rule-based content scoring.
 func (s *Scorer) scoreByRules(content string) *models.GeoScore {
 	score := &models.GeoScore{
 		Structure: s.calculateStructureScore(content),
@@ -156,11 +147,10 @@ func (s *Scorer) scoreByRules(content string) *models.GeoScore {
 	return score
 }
 
-// calculateStructureScore 计算结构化评分
+// calculateStructureScore calculates the structure score (0-100).
 func (s *Scorer) calculateStructureScore(content string) float64 {
 	score := 0.0
 
-	// 1. 检查标题层级 (0-30分) - 使用预编译正则
 	headings := headingPattern.FindAllString(content, -1)
 	if len(headings) > 0 {
 		score += 15.0
@@ -172,7 +162,6 @@ func (s *Scorer) calculateStructureScore(content string) float64 {
 		}
 	}
 
-	// 2. 检查列表使用 (0-20分)
 	if strings.Contains(content, "- ") || strings.Contains(content, "* ") {
 		score += 10.0
 	}
@@ -180,7 +169,6 @@ func (s *Scorer) calculateStructureScore(content string) float64 {
 		score += 10.0
 	}
 
-	// 3. 检查段落结构 (0-25分)
 	paragraphs := strings.Split(content, "\n\n")
 	wellStructuredParagraphs := 0
 	for _, p := range paragraphs {
@@ -194,7 +182,6 @@ func (s *Scorer) calculateStructureScore(content string) float64 {
 		score += ratio * 25.0
 	}
 
-	// 4. 检查章节划分 (0-25分) - 使用预编译正则
 	sections := sectionPattern.FindAllString(content, -1)
 	if len(sections) >= 2 {
 		score += 15.0
@@ -203,7 +190,6 @@ func (s *Scorer) calculateStructureScore(content string) float64 {
 		score += 10.0
 	}
 
-	// 确保分数在 0-100 范围内
 	if score > 100 {
 		score = 100
 	}
@@ -211,11 +197,10 @@ func (s *Scorer) calculateStructureScore(content string) float64 {
 	return score
 }
 
-// calculateAuthorityScore 计算权威性评分
+// calculateAuthorityScore calculates the authority score (0-100).
 func (s *Scorer) calculateAuthorityScore(content string) float64 {
 	score := 0.0
 
-	// 1. 检查数据支撑 (0-30分) - 使用预编译正则
 	for _, re := range dataPatterns {
 		if re.MatchString(content) {
 			score += 5.0
@@ -225,7 +210,6 @@ func (s *Scorer) calculateAuthorityScore(content string) float64 {
 		score = 30
 	}
 
-	// 2. 检查来源标注 (0-30分) - 使用预编译正则
 	sourceCount := 0
 	for _, re := range sourcePatterns {
 		matches := re.FindAllString(content, -1)
@@ -236,7 +220,6 @@ func (s *Scorer) calculateAuthorityScore(content string) float64 {
 		score = 30
 	}
 
-	// 3. 检查专业术语使用 (0-20分)
 	professionalWords := []string{
 		`优化`, `策略`, `分析`, `评估`, `效果`,
 		`optimize`, `strategy`, `analysis`, `evaluation`,
@@ -252,7 +235,6 @@ func (s *Scorer) calculateAuthorityScore(content string) float64 {
 		score = 20
 	}
 
-	// 4. 检查具体案例或证据 (0-20分) - 使用预编译正则
 	evidenceCount := 0
 	for _, re := range evidencePatterns {
 		if re.MatchString(content) {
@@ -271,16 +253,14 @@ func (s *Scorer) calculateAuthorityScore(content string) float64 {
 	return score
 }
 
-// calculateClarityScore 计算清晰度评分
+// calculateClarityScore calculates the clarity score (0-100).
 func (s *Scorer) calculateClarityScore(content string) float64 {
-	// 空内容直接返回0
 	if strings.TrimSpace(content) == "" {
 		return 0.0
 	}
 
 	score := 0.0
 
-	// 1. 检查句子长度 (0-30分) - 使用预编译正则
 	sentences := sentenceSplitPattern.Split(content, -1)
 	shortSentences := 0
 	for _, s := range sentences {
@@ -294,7 +274,6 @@ func (s *Scorer) calculateClarityScore(content string) float64 {
 		score += ratio * 30.0
 	}
 
-	// 2. 检查段落长度 (0-25分)
 	paragraphs := strings.Split(content, "\n\n")
 	shortParagraphs := 0
 	for _, p := range paragraphs {
@@ -308,7 +287,6 @@ func (s *Scorer) calculateClarityScore(content string) float64 {
 		score += ratio * 25.0
 	}
 
-	// 3. 检查逻辑连接词 (0-25分)
 	connectorPatterns := []string{
 		`因此`, `所以`, `但是`, `然而`, `此外`, `另外`,
 		`therefore`, `however`, `moreover`, `furthermore`, `in addition`,
@@ -324,7 +302,6 @@ func (s *Scorer) calculateClarityScore(content string) float64 {
 		score = 25
 	}
 
-	// 4. 检查可读性（避免过多嵌套）(0-20分)
 	lines := strings.Split(content, "\n")
 	longLines := 0
 	for _, line := range lines {
@@ -344,11 +321,10 @@ func (s *Scorer) calculateClarityScore(content string) float64 {
 	return score
 }
 
-// calculateCitationScore 计算可引用性评分
+// calculateCitationScore calculates the citation score (0-100).
 func (s *Scorer) calculateCitationScore(content string) float64 {
 	score := 0.0
 
-	// 1. 检查结论性陈述 (0-30分) - 使用预编译正则
 	conclusionCount := 0
 	for _, re := range conclusionPatterns {
 		if re.MatchString(content) {
@@ -360,7 +336,6 @@ func (s *Scorer) calculateCitationScore(content string) float64 {
 		score = 30
 	}
 
-	// 2. 检查事实陈述 (0-30分) - 使用预编译正则
 	factCount := 0
 	for _, re := range factPatterns {
 		matches := re.FindAllString(content, -1)
@@ -371,7 +346,6 @@ func (s *Scorer) calculateCitationScore(content string) float64 {
 		score = 30
 	}
 
-	// 3. 检查可操作性建议 (0-20分) - 使用预编译正则
 	actionableCount := 0
 	for _, re := range actionablePatterns {
 		if re.MatchString(content) {
@@ -383,7 +357,6 @@ func (s *Scorer) calculateCitationScore(content string) float64 {
 		score = 20
 	}
 
-	// 4. 检查独特观点 (0-20分)
 	uniquePatterns := []string{
 		`独特`, `创新`, `新颖`, `首次`,
 		`unique`, `innovative`, `novel`, `first`,
@@ -406,19 +379,16 @@ func (s *Scorer) calculateCitationScore(content string) float64 {
 	return score
 }
 
-// calculateSchemaScore 计算Schema完整性评分
+// calculateSchemaScore calculates the Schema completeness score (0-100).
 func (s *Scorer) calculateSchemaScore(content string) float64 {
 	score := 0.0
 
-	// 1. 检查JSON-LD标记 (0-50分)
 	if strings.Contains(content, `<script type="application/ld+json">`) {
 		score += 50.0
 	} else if strings.Contains(content, `"@context"`) || strings.Contains(content, `"@type"`) {
-		// 纯JSON格式
 		score += 40.0
 	}
 
-	// 2. 检查Schema.org类型 (0-20分)
 	schemaTypes := []string{
 		`"Article"`, `"WebPage"`, `"Product"`, `"HowTo"`,
 		`"FAQPage"`, `"Organization"`, `"Person"`,
@@ -433,7 +403,6 @@ func (s *Scorer) calculateSchemaScore(content string) float64 {
 		score = 70
 	}
 
-	// 3. 检查必需字段 (0-30分)
 	requiredFields := []string{
 		`"name"`, `"headline"`, `"description"`,
 	}
@@ -452,19 +421,19 @@ func (s *Scorer) calculateSchemaScore(content string) float64 {
 	return score
 }
 
-// ScoreComparison 评分对比
+// ScoreComparison represents a comparison of scores before and after optimization.
 type ScoreComparison struct {
 	Before       *models.GeoScore   `json:"before"`
 	After        *models.GeoScore   `json:"after"`
-	Improvements map[string]float64 `json:"improvements"` // 各维度提升幅度
+	Improvements map[string]float64 `json:"improvements"`
 	TotalChange  float64            `json:"total_change"`
 }
 
-// GetImprovementSummary 获取改进摘要
+// GetImprovementSummary returns a summary of improvements.
 func (c *ScoreComparison) GetImprovementSummary() string {
 	var summary strings.Builder
 
-	summary.WriteString(fmt.Sprintf("总分变化: %.2f → %.2f (%.2f%%)\n",
+	summary.WriteString(fmt.Sprintf("Total Score Change: %.2f → %.2f (%.2f%%)\n",
 		c.Before.OverallScore(),
 		c.After.OverallScore(),
 		c.TotalChange))

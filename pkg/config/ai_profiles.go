@@ -4,7 +4,7 @@ import (
 	"github.com/Lin-Jiong-HDU/geo-optimizer/pkg/models"
 )
 
-// AIProfiles AI平台预设配置
+// AIProfiles contains preset configurations for AI platforms.
 var AIProfiles = map[string]models.AIPreference{
 	"chatgpt": {
 		ContentStyle:   "professional",
@@ -21,8 +21,8 @@ var AIProfiles = map[string]models.AIPreference{
 		SynonymUsage:     true,
 		CodeBlocks:       true,
 		TechnicalDepth:   "intermediate",
-		CustomInstructions: "请使用专业的语言风格，确保内容结构清晰，" +
-			"使用恰当的标题层级，并在适当位置添加引用和数据支撑。",
+		CustomInstructions: "Use professional language style, ensure clear content structure, " +
+			"use appropriate heading levels, and add citations and data support where appropriate.",
 	},
 
 	"perplexity": {
@@ -39,8 +39,8 @@ var AIProfiles = map[string]models.AIPreference{
 		SynonymUsage:     true,
 		CodeBlocks:       false,
 		TechnicalDepth:   "beginner",
-		CustomInstructions: "请直接回答问题，使用简洁的语言，" +
-			"提供准确的来源链接，避免冗长的解释。",
+		CustomInstructions: "Answer directly, use concise language, " +
+			"provide accurate source links, avoid lengthy explanations.",
 	},
 
 	"google_ai": {
@@ -58,8 +58,8 @@ var AIProfiles = map[string]models.AIPreference{
 		SynonymUsage:     false,
 		CodeBlocks:       true,
 		TechnicalDepth:   "advanced",
-		CustomInstructions: "请提供全面详细的内容，使用学术风格的引用，" +
-			"包含丰富的结构化数据（Schema标记），确保技术准确性。",
+		CustomInstructions: "Provide comprehensive and detailed content, use academic citation style, " +
+			"include rich structured data (Schema markup), ensure technical accuracy.",
 	},
 
 	"claude": {
@@ -77,18 +77,18 @@ var AIProfiles = map[string]models.AIPreference{
 		SynonymUsage:     true,
 		CodeBlocks:       true,
 		TechnicalDepth:   "intermediate",
-		CustomInstructions: "请使用自然对话式的语言，注重内容的可读性和上下文连贯性，" +
-			"在适当位置引用来源，保持客观中立的语气。",
+		CustomInstructions: "Use natural conversational language, focus on readability and contextual coherence, " +
+			"cite sources where appropriate, maintain an objective and neutral tone.",
 	},
 }
 
-// GetAIProfile 获取AI平台预设配置
+// GetAIProfile returns the preset configuration for an AI platform.
 func GetAIProfile(platform string) (models.AIPreference, bool) {
 	profile, ok := AIProfiles[platform]
 	return profile, ok
 }
 
-// GetAvailablePlatforms 获取所有可用的AI平台
+// GetAvailablePlatforms returns all available AI platforms.
 func GetAvailablePlatforms() []string {
 	platforms := make([]string, 0, len(AIProfiles))
 	for platform := range AIProfiles {
@@ -97,19 +97,16 @@ func GetAvailablePlatforms() []string {
 	return platforms
 }
 
-// MergeWithDefaults 将用户配置与默认配置合并
+// MergeWithDefaults merges user preferences with default configurations.
 func MergeWithDefaults(userPrefs map[string]models.AIPreference) map[string]models.AIPreference {
 	result := make(map[string]models.AIPreference)
 
-	// 首先复制默认配置
 	for platform, defaultPref := range AIProfiles {
 		result[platform] = defaultPref
 	}
 
-	// 然后覆盖用户提供的配置
 	for platform, userPref := range userPrefs {
 		if _, exists := result[platform]; exists {
-			// 合并配置（用户配置优先）
 			merged := result[platform]
 			if userPref.ContentStyle != "" {
 				merged.ContentStyle = userPref.ContentStyle
@@ -134,7 +131,6 @@ func MergeWithDefaults(userPrefs map[string]models.AIPreference) map[string]mode
 			}
 			result[platform] = merged
 		} else {
-			// 使用用户提供的完整配置
 			result[platform] = userPref
 		}
 	}
