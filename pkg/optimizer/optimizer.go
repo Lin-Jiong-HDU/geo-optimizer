@@ -51,6 +51,11 @@ func (o *Optimizer) RegisterDefaultStrategies() {
 	o.RegisterStrategy(strategiespkg.NewFAQStrategy())
 }
 
+// Scorer returns the scorer instance for direct access.
+func (o *Optimizer) Scorer() *analyzer.Scorer {
+	return o.scorer
+}
+
 // Optimize executes the full optimization pipeline.
 func (o *Optimizer) Optimize(ctx context.Context, req *models.OptimizationRequest) (*models.OptimizationResponse, error) {
 	if err := o.validateRequest(req); err != nil {
