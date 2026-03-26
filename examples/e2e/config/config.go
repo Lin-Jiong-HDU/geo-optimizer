@@ -54,7 +54,11 @@ func Load() (*Config, error) {
 		cfg.BaseURL = baseURL
 	}
 	if timeout := os.Getenv("GLM_TIMEOUT"); timeout != "" {
-		fmt.Sscanf(timeout, "%d", &cfg.Timeout)
+		var parsedTimeout int
+		if n, err := fmt.Sscanf(timeout, "%d", &parsedTimeout); n != 1 || err != nil {
+			return nil, fmt.Errorf("invalid GLM_TIMEOUT value: %q", timeout)
+		}
+		cfg.Timeout = parsedTimeout
 	}
 
 	if cfg.APIKey == "" {
