@@ -16,8 +16,7 @@ This is a **B2B GEO (Generative Engine Optimization)** engine implemented as a G
 pkg/
 ├── optimizer/         # Core optimization engine
 │   ├── optimizer.go   # Main optimizer orchestrator
-│   ├── strategies/    # Individual strategy implementations
-│   └── enhancer/      # Content enhancement utilities
+│   └── strategies/    # Individual strategy implementations
 ├── llm/               # LLM abstraction layer
 │   ├── client.go      # Unified LLM client interface
 │   ├── provider.go    # Provider-specific implementations
@@ -32,7 +31,7 @@ pkg/
 
 ### Key Design Patterns
 
-1. **LLM Abstraction**: `llm.LLMClient` interface supports multiple providers (OpenAI, Anthropic, Azure, Google, custom endpoints). Implementations handle provider-specific differences while exposing a unified API.
+1. **LLM Abstraction**: `llm.LLMClient` interface supports multiple providers (currently GLM implemented). Implementations handle provider-specific differences while exposing a unified API.
 
 2. **Strategy Pattern**: `optimizer/strategies/` implements discrete optimization strategies (structure, schema, answer-first, authority, FAQ). Each strategy can be applied independently or combined.
 
@@ -98,6 +97,12 @@ go fmt ./...
 
 # Tidy dependencies
 go mod tidy
+
+# Run E2E tests
+cd examples/e2e
+go run .
+go run . --scenario=basic
+go run . --scenario=full_flow
 ```
 
 ## Module Information
@@ -118,7 +123,7 @@ import (
 )
 
 // 1. Initialize LLM client with provider config
-llmClient := llm.NewClient(llm.Config{Provider: llm.ProviderOpenAI, ...})
+llmClient := llm.NewClient(llm.Config{Provider: llm.ProviderGLM, ...})
 
 // 2. Create optimizer with client
 opt := optimizer.New(llmClient)
@@ -150,3 +155,6 @@ From `docs/产品原型.md`:
 - 在实现llm客户端时，不要使用第三方的Go SDK，直接调用HTTP API
 - 将代码提交到GitHub仓库前，确保使用`go fmt ./...`进行代码格式化
 - 遇到不清楚的点时，可以查阅docs/下的文档
+
+# currentDate
+Today's date is 2026-03-27.
