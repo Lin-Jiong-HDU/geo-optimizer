@@ -170,6 +170,34 @@ pkg/
 └── config/            # Configuration and AI platform presets
 ```
 
+## E2E Testing
+
+An end-to-end testing CLI tool is available in `examples/e2e/` for validating the complete optimization workflow.
+
+```bash
+cd examples/e2e
+
+# Configure your GLM API key
+cp .env.example .env
+# Edit .env and add your GLM_API_KEY
+
+# Run all tests
+go run .
+
+# Run specific scenario
+go run . --scenario=basic
+go run . --scenario=full_flow
+
+# Verbose output
+go run . --verbose
+```
+
+The E2E tests validate:
+- **Basic Functionality**: LLM chat, content scoring, single strategy optimization
+- **Full Business Flow**: Complete optimization pipeline with realistic enterprise data
+
+Test reports are generated in `examples/e2e/output/` with detailed Markdown summaries.
+
 ## Documentation
 
 See [API.md](./API.md) for detailed API documentation.
