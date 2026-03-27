@@ -46,5 +46,8 @@ docs/产品原型.md
 docs/GEO优化器设计文档.md
 docs/glm-api-doc.md
 
+# Superpowers plans and specs (internal development)
+docs/superpowers/
+
 # Git worktrees
 .worktrees/
